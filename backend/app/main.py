@@ -4,22 +4,46 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, SessionLocal
+from app.core.security import get_password_hash
 import app.models  # Ensure models are registered with Base.metadata
-from app.api.endpoints import scrapes_router, leads_router, settings_router, ws_router, audit_router
+from app.models.user import User
+from app.api.endpoints import scrapes_router, leads_router, settings_router, ws_router, audit_router, auth_router
 from app.services.websocket_manager import websocket_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables if not existing
     Base.metadata.create_all(bind=engine)
+    
+    # Auto-seed default Super Admin if no users exist
+    db = SessionLocal()
+    try:
+        user_count = db.query(User).count()
+        if user_count == 0:
+            admin_email = settings.DEFAULT_ADMIN_EMAIL.strip().lower()
+            admin_user = User(
+                email=admin_email,
+                full_name=settings.DEFAULT_ADMIN_NAME,
+                hashed_password=get_password_hash(settings.DEFAULT_ADMIN_PASSWORD),
+                role="admin",
+                is_active=True
+            )
+            db.add(admin_user)
+            db.commit()
+            print(f"[AUTH] Initial Admin ready: {admin_email} / {settings.DEFAULT_ADMIN_PASSWORD}")
+    except Exception as e:
+        print(f"[AUTH] Warning seeding admin user: {e}")
+    finally:
+        db.close()
+
     # Register active event loop for WebSocket thread-safe log dispatches
     loop = asyncio.get_running_loop()
     websocket_manager.set_event_loop(loop)
     print("=" * 60)
-    print(f"🚀 {settings.PROJECT_NAME} Backend Started Successfully")
-    print(f"📁 Database: {settings.DATABASE_URL}")
-    print(f"🔑 Apollo API Key Configured: {'Yes' if settings.APOLLO_API_KEY else 'No'}")
+    print(f"[SERVER] {settings.PROJECT_NAME} Backend Started Successfully")
+    print(f"[SERVER] Database: {settings.DATABASE_URL}")
+    print(f"[SERVER] Apollo API Key Configured: {'Yes' if settings.APOLLO_API_KEY else 'No'}")
     print("=" * 60)
     yield
     # Shutdown
@@ -41,6 +65,7 @@ app.add_middleware(
 )
 
 # Mount API Routers
+app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(scrapes_router, prefix=settings.API_V1_STR)
 app.include_router(leads_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)

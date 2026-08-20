@@ -10,7 +10,9 @@ from sqlalchemy import desc, asc, or_
 from app.core.database import get_db
 from app.models.lead import Lead
 from app.models.job import Job
+from app.models.user import User
 from app.schemas.lead import LeadResponse, LeadsPaginationResponse
+from app.api.deps import get_current_active_user, require_admin
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -50,6 +52,7 @@ def get_leads(
     page: int = Query(1, ge=1),
     limit: int = Query(25, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Get paginated leads with full-text search, multi-criteria filtering, and sorting.
@@ -109,6 +112,7 @@ def export_leads_csv(
     niche: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     Download CSV export of leads mapped to the standard 18 columns.
@@ -176,7 +180,11 @@ def export_leads_csv(
 
 
 @router.get("/{lead_id}", response_model=LeadResponse)
-def get_lead_by_id(lead_id: str, db: Session = Depends(get_db)):
+def get_lead_by_id(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Get detailed profile of a single lead.
     """
@@ -187,7 +195,11 @@ def get_lead_by_id(lead_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{lead_id}")
-def delete_lead(lead_id: str, db: Session = Depends(get_db)):
+def delete_lead(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
     """
     Delete a single lead.
     """

@@ -7,7 +7,9 @@ from app.core.config import settings, update_env_variable
 from app.core.database import get_db
 from app.models.job import Job
 from app.models.lead import Lead
+from app.models.user import User
 from app.schemas.settings import SettingsResponse, UpdateSettingsRequest, StatsSummaryResponse
+from app.api.deps import get_current_active_user, require_admin
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -46,7 +48,10 @@ def check_apollo_quota(api_key: str) -> dict:
     return {"hourly_left": None, "hourly_limit": None, "status": "Ready"}
 
 @router.get("/", response_model=SettingsResponse)
-def get_settings(db: Session = Depends(get_db)):
+def get_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Get current configuration status, masked API keys, system diagnostics, and live Apollo quota.
     """
@@ -71,10 +76,11 @@ def get_settings(db: Session = Depends(get_db)):
 @router.post("/", response_model=SettingsResponse)
 def update_settings(
     payload: UpdateSettingsRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
 ):
     """
-    Update the Apollo API key dynamically and persist to backend/.env.
+    Update the Apollo API key dynamically and persist to backend/.env (Admin only).
     """
     new_key = payload.apollo_api_key.strip()
     update_env_variable("APOLLO_API_KEY", new_key)
@@ -96,7 +102,10 @@ def update_settings(
     }
 
 @router.get("/stats", response_model=StatsSummaryResponse)
-def get_stats_summary(db: Session = Depends(get_db)):
+def get_stats_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Get high-level dashboard aggregate analytics across all jobs and leads.
     """

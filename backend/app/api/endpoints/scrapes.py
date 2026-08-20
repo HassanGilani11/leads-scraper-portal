@@ -7,9 +7,11 @@ from sqlalchemy import desc
 
 from app.core.database import get_db
 from app.models.job import Job
+from app.models.user import User
 from app.schemas.job import JobCreateRequest, JobResponse, JobListResponse
 from app.services.leads_scraper import run_scrape_job
 from app.services.websocket_manager import websocket_manager
+from app.api.deps import get_current_active_user, require_admin, require_member_or_admin
 
 router = APIRouter(prefix="/scrapes", tags=["Scrapes"])
 
@@ -23,7 +25,8 @@ def run_job_in_thread(niche: str, state: str, job_id: str):
 async def start_scrape_job(
     request: JobCreateRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_member_or_admin)
 ):
     """
     Trigger a new Australian niche scrape & enrichment job in the background.
@@ -54,7 +57,8 @@ async def start_scrape_job(
 def get_all_jobs(
     limit: int = 50,
     offset: int = 0,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Get list of all scraping jobs sorted by creation date descending.
@@ -64,7 +68,11 @@ def get_all_jobs(
     return {"jobs": jobs, "total": total}
 
 @router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: str, db: Session = Depends(get_db)):
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Get detailed status of a specific scraping job.
     """
@@ -74,7 +82,11 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
     return job
 
 @router.delete("/{job_id}")
-def delete_job(job_id: str, db: Session = Depends(get_db)):
+def delete_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
     """
     Delete a job and all its associated leads.
     """

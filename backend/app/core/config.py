@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
     DATABASE_URL: str = f"sqlite:///{BACKEND_DIR}/leads.db"
     APOLLO_API_KEY: str = ""
+    JWT_SECRET_KEY: str = "leadpulse-secret-key-super-secure-change-in-prod-2026"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    DEFAULT_ADMIN_EMAIL: str = "admin@leadpulse.local"
+    DEFAULT_ADMIN_PASSWORD: str = "Admin@LeadPulse2026!"
+    DEFAULT_ADMIN_NAME: str = "Super Admin"
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",

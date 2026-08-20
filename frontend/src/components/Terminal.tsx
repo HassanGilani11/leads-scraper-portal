@@ -31,7 +31,7 @@ export function Terminal({ jobId, jobStatus, niche, state, onJobComplete }: Term
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   const [wsConnected, setWsConnected] = useState<boolean>(false);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Connect to WebSocket when jobId changes
@@ -77,10 +77,10 @@ export function Terminal({ jobId, jobStatus, niche, state, onJobComplete }: Term
     };
   }, [jobId, onJobComplete]);
 
-  // Auto-scroll to bottom
+  // Internal terminal container auto-scroll only (never scrolls parent window)
   useEffect(() => {
-    if (autoScroll && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (autoScroll && containerRef.current && logs.length > 0) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [logs, autoScroll]);
 
@@ -185,7 +185,10 @@ export function Terminal({ jobId, jobStatus, niche, state, onJobComplete }: Term
       </div>
 
       {/* Terminal Logs Area */}
-      <div className="flex-1 p-4 overflow-y-auto font-mono text-xs text-gray-300 space-y-1.5 select-text custom-scrollbar bg-[#090d14]">
+      <div 
+        ref={containerRef}
+        className="flex-1 p-4 overflow-y-auto font-mono text-xs text-gray-300 space-y-1.5 select-text custom-scrollbar bg-[#090d14]"
+      >
         {logs.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 space-y-3">
             <div className="p-3 rounded-full bg-surface border border-border">
@@ -223,7 +226,6 @@ export function Terminal({ jobId, jobStatus, niche, state, onJobComplete }: Term
             </div>
           ))
         )}
-        <div ref={logsEndRef} />
       </div>
 
       {/* Terminal Footer Info */}

@@ -1,14 +1,19 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends
 from fastapi.responses import StreamingResponse
 
 from app.services.audit_service import perform_website_audit
 from app.services.pdf_report import generate_audit_pdf_bytes
 from app.schemas.audit import AuditReportResponse
+from app.models.user import User
+from app.api.deps import get_current_active_user
 
 router = APIRouter(prefix="/audit", tags=["Audit & Pitch"])
 
 @router.get("/{lead_id}", response_model=AuditReportResponse)
-def get_or_run_audit(lead_id: str):
+def get_or_run_audit(
+    lead_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Run an in-depth website technical audit & cold email pitch generation for a lead.
     """
@@ -21,7 +26,10 @@ def get_or_run_audit(lead_id: str):
         raise HTTPException(status_code=500, detail=f"Audit scan failed: {str(e)}")
 
 @router.get("/{lead_id}/pdf")
-def download_audit_pdf(lead_id: str):
+def download_audit_pdf(
+    lead_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
     """
     Generate and download a professional client-ready Website Audit PDF Report.
     """
