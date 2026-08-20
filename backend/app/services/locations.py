@@ -1,0 +1,58 @@
+# Location definitions for targeted Australian niche scraping
+AUSTRALIA_LOCATIONS: dict[str, list[str]] = {
+    "NSW": [
+        "Sydney CBD",
+        "Parramatta",
+        "Penrith",
+        "Blacktown",
+        "Liverpool",
+        "Bankstown",
+        "Campbelltown",
+        "Bondi",
+        "Manly",
+        "Chatswood",
+        "Sutherland",
+        "Castle Hill",
+        "Wollongong",
+        "Newcastle",
+    ],
+    "VIC": [
+        "Melbourne CBD",
+        "Richmond",
+        "Dandenong",
+        "Frankston",
+        "Geelong",
+        "Ballarat",
+        "Bendigo",
+        "Werribee",
+        "Epping",
+        "Box Hill",
+        "Preston",
+        "Clayton",
+    ],
+    "QLD": [
+        "Brisbane CBD",
+        "Gold Coast",
+        "Sunshine Coast",
+        "Ipswich",
+        "Logan Central",
+        "Cairns",
+        "Townsville",
+        "Toowoomba",
+    ],
+    "WA": ["Perth CBD", "Fremantle", "Joondalup", "Mandurah", "Rockingham"],
+    "SA": ["Adelaide CBD", "Salisbury", "Glenelg", "Mount Barker"],
+    "TAS": ["Hobart", "Launceston"],
+    "ACT": ["Canberra CBD", "Belconnen", "Tuggeranong"],
+}
+
+# Suburb counts helper
+AUSTRALIA_STATE_NAMES = {
+    "NSW": "New South Wales",
+    "VIC": "Victoria",
+    "QLD": "Queensland",
+    "WA": "Western Australia",
+    "SA": "South Australia",
+    "TAS": "Tasmania",
+    "ACT": "Australian Capital Territory",
+}
