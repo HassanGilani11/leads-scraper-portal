@@ -281,9 +281,15 @@ export async function getStatsSummary(): Promise<StatsSummary> {
 }
 
 export function getWsUrl(jobId: string): string {
-  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const defaultHost = "127.0.0.1:8000";
-  return `${wsProtocol}//${defaultHost}/api/ws/${jobId}`;
+  try {
+    const url = new URL(API_BASE);
+    const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+    const cleanPath = url.pathname.replace(/\/$/, "");
+    return `${wsProtocol}//${url.host}${cleanPath}/ws/${jobId}`;
+  } catch {
+    const wsProtocol = typeof window !== "undefined" && window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${wsProtocol}//127.0.0.1:8000/api/ws/${jobId}`;
+  }
 }
 
 // ----------------- Schedules API Methods -----------------
