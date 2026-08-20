@@ -26,7 +26,9 @@ import {
   RefreshCw,
   User as UserIcon,
   Mail,
-  Calendar
+  Calendar,
+  Pencil,
+  KeyRound
 } from "lucide-react";
 import { 
   getSettings, 
@@ -60,6 +62,15 @@ export default function SettingsPage() {
   const [newUserPassword, setNewUserPassword] = useState<string>("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("member");
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
+
+  // Edit User modal state
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [editFullName, setEditFullName] = useState<string>("");
+  const [editRole, setEditRole] = useState<UserRole>("member");
+  const [editIsActive, setEditIsActive] = useState<boolean>(true);
+  const [editPassword, setEditPassword] = useState<string>("");
+  const [isUpdatingUser, setIsUpdatingUser] = useState<boolean>(false);
   
   // Profile update state
   const [profileName, setProfileName] = useState<string>(currentUser?.full_name || "");
@@ -176,6 +187,56 @@ export default function SettingsPage() {
       showError(err.message || "Failed to allocate new user");
     } finally {
       setIsCreatingUser(false);
+    }
+  };
+
+  const handleOpenEditModal = (targetUser: User) => {
+    setEditingUser(targetUser);
+    setEditFullName(targetUser.full_name || "");
+    setEditRole(targetUser.role);
+    setEditIsActive(targetUser.is_active);
+    setEditPassword("");
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    setIsUpdatingUser(true);
+    try {
+      const payload: {
+        full_name?: string;
+        role?: UserRole;
+        is_active?: boolean;
+        password?: string;
+      } = {
+        full_name: editFullName.trim() || undefined,
+        role: editRole,
+        is_active: editIsActive,
+      };
+
+      if (editPassword.trim()) {
+        if (editPassword.length < 6) {
+          showError("New password must be at least 6 characters.");
+          setIsUpdatingUser(false);
+          return;
+        }
+        payload.password = editPassword.trim();
+      }
+
+      await updateUser(editingUser.id, payload);
+      showSuccess(`User account ${editingUser.email} updated successfully.`);
+      setShowEditModal(false);
+      setEditingUser(null);
+      loadUsers();
+      if (editingUser.id === currentUser?.id) {
+        refreshUser();
+      }
+    } catch (err: any) {
+      showError(err.message || "Failed to update user account");
+    } finally {
+      setIsUpdatingUser(false);
     }
   };
 
@@ -602,15 +663,27 @@ export default function SettingsPage() {
                         </td>
 
                         <td className="px-4 py-3.5 text-right">
-                          {!isSelf && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Button */}
                             <button
-                              onClick={() => handleDeleteUser(u)}
-                              className="p-1.5 text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
-                              title="Delete user"
+                              onClick={() => handleOpenEditModal(u)}
+                              className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition"
+                              title="Edit user details, role & password"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Pencil className="w-4 h-4" />
                             </button>
-                          )}
+
+                            {/* Delete Button */}
+                            {!isSelf && (
+                              <button
+                                onClick={() => handleDeleteUser(u)}
+                                className="p-1.5 text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                                title="Delete user"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -880,6 +953,142 @@ export default function SettingsPage() {
                 >
                   {isCreatingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
                   <span>Allocate Account</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit User Details, Role & Password */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-[#0f172a] border border-border p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-blue-400" />
+                <span>Edit User: {editingUser.email}</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                }}
+                className="text-gray-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="e.g. Sarah Jenkins"
+                  className="w-full px-4 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Access Role
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as UserRole)}
+                  disabled={editingUser.id === currentUser?.id}
+                  className={`w-full px-4 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white focus:border-blue-500 focus:outline-none transition ${
+                    editingUser.id === currentUser?.id ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
+                >
+                  <option value="member">Member (Can Scrape & Export Leads)</option>
+                  <option value="viewer">Viewer (Can View Leads & Audits)</option>
+                  <option value="admin">Super Admin (Full CRUD & Settings Access)</option>
+                </select>
+                {editingUser.id === currentUser?.id && (
+                  <span className="text-[10px] text-gray-500 mt-1 block">
+                    You cannot change your own admin role.
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Account Status
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={editingUser.id === currentUser?.id}
+                    onClick={() => setEditIsActive(true)}
+                    className={`flex-1 py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                      editIsActive
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-sm"
+                        : "bg-surface-raised border-border text-gray-400 hover:text-white"
+                    } ${editingUser.id === currentUser?.id ? "cursor-not-allowed opacity-80" : ""}`}
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Active</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={editingUser.id === currentUser?.id}
+                    onClick={() => setEditIsActive(false)}
+                    className={`flex-1 py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                      !editIsActive
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-sm"
+                        : "bg-surface-raised border-border text-gray-400 hover:text-white"
+                    } ${editingUser.id === currentUser?.id ? "cursor-not-allowed opacity-80" : ""}`}
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Deactivated</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
+                  <span>Reset Password (Optional)</span>
+                  <span className="text-[10px] text-gray-500 font-normal">Leave blank to keep unchanged</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <KeyRound className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Enter new password (min 6 characters)..."
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                  }}
+                  className="px-4 py-2 text-xs text-gray-400 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingUser}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-5 py-2 text-xs font-bold text-white transition shadow-lg shadow-blue-500/25"
+                >
+                  {isUpdatingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>
