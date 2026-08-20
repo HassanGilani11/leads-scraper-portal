@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Shield, Lock, Mail, Eye, EyeOff, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Shield, Lock, Mail, Eye, EyeOff, ArrowRight, Loader2, AlertCircle, Sparkles } from "lucide-react";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -16,6 +16,12 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
+
+  const handleFillDemoAdmin = () => {
+    setEmail("admin@leadpulse.local");
+    setPassword("Admin@LeadPulse2026!");
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +63,8 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="bg-[#0f172a]/85 backdrop-blur-xl border border-border/80 rounded-2xl p-8 shadow-2xl shadow-black/40">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-border/60">
+        <div className="bg-[#0f172a]/85 backdrop-blur-xl border border-border/80 rounded-2xl p-8 shadow-2xl shadow-black/40 space-y-5">
+          <div className="flex items-center justify-between pb-4 border-b border-border/60">
             <div>
               <h2 className="text-lg font-semibold text-white">Authorized Sign In</h2>
               <p className="text-xs text-gray-400">Enter your credentials to access the workspace</p>
@@ -69,8 +75,8 @@ function LoginForm() {
           </div>
 
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-400 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-400 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -91,7 +97,7 @@ function LoginForm() {
                   placeholder="name@company.com"
                   required
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#1e293b]/70 border border-border rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#1e293b]/70 border border-border rounded-xl text-white placeholder-gray-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -110,7 +116,7 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  className="w-full pl-10 pr-11 py-2.5 bg-[#1e293b]/70 border border-border rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-11 py-2.5 bg-[#1e293b]/70 border border-border rounded-xl text-white placeholder-gray-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
@@ -125,7 +131,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white font-medium text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-blue-500/40"
+              className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:via-indigo-500 hover:to-purple-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-blue-500/40"
             >
               {isSubmitting ? (
                 <>
@@ -140,6 +146,18 @@ function LoginForm() {
               )}
             </button>
           </form>
+
+          {/* Quick Default Admin Helper Card */}
+          <div className="pt-3 border-t border-border/60">
+            <button
+              type="button"
+              onClick={handleFillDemoAdmin}
+              className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-300 text-[11px] font-medium flex items-center justify-center gap-1.5 transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <span>Fill Default Super Admin Credentials</span>
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 text-center text-xs text-gray-500">

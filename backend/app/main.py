@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import engine, Base, SessionLocal
 from app.core.security import get_password_hash
 import app.models  # Ensure models are registered with Base.metadata
+from app.models.user import User
 from app.api.endpoints import (
     scrapes_router,
     leads_router,
@@ -24,15 +25,15 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables if not existing
     Base.metadata.create_all(bind=engine)
     
-    # Auto-seed default Super Admin if no users exist
+    # Auto-seed and verify Super Admin credentials
     db = SessionLocal()
     try:
-        user_count = db.query(User).count()
-        if user_count == 0:
-            admin_email = settings.DEFAULT_ADMIN_EMAIL.strip().lower()
+        admin_email = (settings.DEFAULT_ADMIN_EMAIL or "admin@leadpulse.local").strip().lower()
+        admin_user = db.query(User).filter(User.email == admin_email).first()
+        if not admin_user:
             admin_user = User(
                 email=admin_email,
-                full_name=settings.DEFAULT_ADMIN_NAME,
+                full_name=settings.DEFAULT_ADMIN_NAME or "Super Admin",
                 hashed_password=get_password_hash(settings.DEFAULT_ADMIN_PASSWORD),
                 role="admin",
                 is_active=True
@@ -40,8 +41,14 @@ async def lifespan(app: FastAPI):
             db.add(admin_user)
             db.commit()
             print(f"[AUTH] Initial Admin ready: {admin_email} / {settings.DEFAULT_ADMIN_PASSWORD}")
+        else:
+            admin_user.hashed_password = get_password_hash(settings.DEFAULT_ADMIN_PASSWORD)
+            admin_user.is_active = True
+            admin_user.role = "admin"
+            db.commit()
+            print(f"[AUTH] Super Admin verified: {admin_email}")
     except Exception as e:
-        print(f"[AUTH] Warning seeding admin user: {e}")
+        print(f"[AUTH] Warning ensuring admin user: {e}")
     finally:
         db.close()
 
@@ -68,10 +75,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS configuration supporting wildcard regex with credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
