@@ -285,3 +285,74 @@ export function getWsUrl(jobId: string): string {
   const defaultHost = "127.0.0.1:8000";
   return `${wsProtocol}//${defaultHost}/api/ws/${jobId}`;
 }
+
+// ----------------- Schedules API Methods -----------------
+
+export async function getSchedules(): Promise<import("@/types").ScheduleListResponse> {
+  const res = await authFetch(`${API_BASE}/schedules/`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch recurring schedules");
+  return res.json();
+}
+
+export async function createSchedule(data: {
+  niche: string;
+  state: string;
+  frequency: import("@/types").ScheduleFrequency;
+  day_of_week?: number;
+  hour_of_day?: number;
+  is_active?: boolean;
+}): Promise<import("@/types").Schedule> {
+  const res = await authFetch(`${API_BASE}/schedules/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create schedule");
+  }
+  return res.json();
+}
+
+export async function updateSchedule(
+  scheduleId: string,
+  data: {
+    frequency?: import("@/types").ScheduleFrequency;
+    day_of_week?: number;
+    hour_of_day?: number;
+    is_active?: boolean;
+  }
+): Promise<import("@/types").Schedule> {
+  const res = await authFetch(`${API_BASE}/schedules/${scheduleId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update schedule");
+  }
+  return res.json();
+}
+
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  const res = await authFetch(`${API_BASE}/schedules/${scheduleId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to delete schedule");
+  }
+}
+
+export async function triggerScheduleRunNow(scheduleId: string): Promise<Job> {
+  const res = await authFetch(`${API_BASE}/schedules/${scheduleId}/run-now`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to trigger schedule execution");
+  }
+  return res.json();
+}
+

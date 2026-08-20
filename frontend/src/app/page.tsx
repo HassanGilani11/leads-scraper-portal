@@ -17,10 +17,13 @@ import {
   ArrowRight,
   TrendingUp,
   RefreshCw,
-  Trash2
+  Trash2,
+  CalendarClock
 } from "lucide-react";
 import Link from "next/link";
 import { Terminal } from "@/components/Terminal";
+import { SchedulesList } from "@/components/SchedulesList";
+import { ScheduleModal } from "@/components/ScheduleModal";
 import { startScrapeJob, getJobs, getStatsSummary, deleteJob } from "@/lib/api";
 import { Job, StatsSummary } from "@/types";
 import { formatDate } from "@/lib/utils";
@@ -53,6 +56,7 @@ export default function DashboardPage() {
   const [customNiche, setCustomNiche] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("NSW");
   const [isLaunching, setIsLaunching] = useState<boolean>(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState<boolean>(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [jobsHistory, setJobsHistory] = useState<Job[]>([]);
   const [stats, setStats] = useState<StatsSummary | null>(null);
@@ -101,75 +105,50 @@ export default function DashboardPage() {
 
     setErrorMessage(null);
     setIsLaunching(true);
-    setFoundCount(0);
-    setEnrichedCount(0);
-    setErrorCount(0);
 
     try {
       const job = await startScrapeJob(finalNiche, selectedState);
       setActiveJob(job);
-      await fetchDashboardData();
+      setFoundCount(0);
+      setEnrichedCount(0);
+      setErrorCount(0);
+      fetchDashboardData();
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to launch scrape job");
+      setErrorMessage(err.message || "Failed to trigger scraping job");
     } finally {
       setIsLaunching(false);
     }
   };
 
+  const handleJobCompleted = () => {
+    fetchDashboardData();
+  };
+
   const handleDeleteJob = async (jobId: string) => {
-    if (confirm("Are you sure you want to delete this job and its scraped leads?")) {
-      try {
-        await deleteJob(jobId);
-        if (activeJob?.id === jobId) setActiveJob(null);
-        await fetchDashboardData();
-      } catch (err) {
-        alert("Failed to delete job");
+    if (!confirm("Are you sure you want to delete this job and its scraped leads?")) return;
+    try {
+      await deleteJob(jobId);
+      if (activeJob?.id === jobId) {
+        setActiveJob(null);
       }
+      fetchDashboardData();
+    } catch (err) {
+      alert("Failed to delete job");
     }
   };
 
-  const handleJobCompleted = async () => {
-    await fetchDashboardData();
+  const handleScheduledJobTriggered = (jobId: string) => {
+    fetchDashboardData();
+    const target = jobsHistory.find((j) => j.id === jobId);
+    if (target) {
+      setActiveJob(target);
+    }
   };
-
-  const selectedStateObj = AUSTRALIAN_STATES.find((s) => s.code === selectedState);
 
   return (
     <div className="space-y-8">
-      {/* Top Banner / Hero Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-            <span>Australian Lead Scraper & Enrichment</span>
-            <span className="text-xs px-2.5 py-1 font-semibold rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              v1.0
-            </span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Extract Google Maps business listings across all Australian states and enrich decision-maker contacts with Apollo.io in real time.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchDashboardData}
-            className="flex items-center gap-2 rounded-lg bg-surface border border-border px-3.5 py-2 text-xs font-medium text-gray-300 hover:text-white hover:bg-surface-raised transition"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
-          <Link
-            href="/leads"
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-500 transition shadow-lg shadow-blue-600/20"
-          >
-            <Users className="h-4 w-4" />
-            Explore Vault
-          </Link>
-        </div>
-      </div>
-
-      {/* Real-time Metrics Ribbon */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Banner & Quick Analytics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Total Leads */}
         <div className="rounded-xl border border-border bg-surface p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between">
@@ -179,24 +158,24 @@ export default function DashboardPage() {
           <p className="text-2xl sm:text-3xl font-bold text-white mt-2">
             {(stats?.total_leads || 0).toLocaleString()}
           </p>
-          <div className="flex items-center gap-1.5 text-xs text-blue-400 mt-2">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span>{stats?.total_jobs || 0} Total Scraping Jobs</span>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-2">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Across Australia (All States)</span>
           </div>
           <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-blue-500/5 rounded-full blur-xl group-hover:bg-blue-500/10 transition" />
         </div>
 
-        {/* Metric 2: Leads with Email */}
+        {/* Metric 2: Leads with Verified Email */}
         <div className="rounded-xl border border-border bg-surface p-4 sm:p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-400">Enriched with Emails</span>
-            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <span className="text-xs font-medium text-gray-400">Decision-Maker Emails</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           </div>
           <p className="text-2xl sm:text-3xl font-bold text-emerald-400 mt-2">
             {(stats?.leads_with_email || 0).toLocaleString()}
           </p>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-2">
-            <span>Direct & Business Emails</span>
+            <span>Enriched via Apollo & Web</span>
           </div>
           <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition" />
         </div>
@@ -299,10 +278,8 @@ export default function DashboardPage() {
                   type="text"
                   placeholder="Or enter custom niche (e.g. Roof Painters, Physiotherapists)..."
                   value={customNiche}
-                  onChange={(e) => {
-                    setCustomNiche(e.target.value);
-                  }}
-                  className="w-full rounded-xl bg-surface-raised border border-border px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
+                  onChange={(e) => setCustomNiche(e.target.value)}
+                  className="w-full rounded-xl bg-surface-raised border border-border px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none transition"
                 />
               </div>
 
@@ -313,7 +290,7 @@ export default function DashboardPage() {
                     <MapPin className="h-3.5 w-3.5 text-blue-400" /> Australian State / Territory
                   </span>
                   <span className="text-[11px] text-gray-500 font-normal">
-                    {selectedStateObj?.suburbsCount} Suburbs queued
+                    {AUSTRALIAN_STATES.find(s => s.code === selectedState)?.suburbsCount || 0} Suburbs queued
                   </span>
                 </label>
 
@@ -325,7 +302,7 @@ export default function DashboardPage() {
                         type="button"
                         key={state.code}
                         onClick={() => setSelectedState(state.code)}
-                        className={`flex flex-col items-start p-3 rounded-xl border transition text-left relative ${
+                        className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition relative overflow-hidden ${
                           isSelected
                             ? "bg-blue-600/10 border-blue-500 text-blue-400 shadow-md shadow-blue-500/10"
                             : "bg-surface-raised border-border text-gray-300 hover:border-gray-600"
@@ -347,33 +324,44 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Launch Button */}
-              <button
-                type="submit"
-                disabled={isLaunching || activeJob?.status === "running"}
-                className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-sm font-bold text-white shadow-xl transition duration-200 ${
-                  activeJob?.status === "running"
-                    ? "bg-gray-700 cursor-not-allowed opacity-80"
-                    : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/25 active:scale-[0.99]"
-                }`}
-              >
-                {isLaunching ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Initializing Engine...</span>
-                  </>
-                ) : activeJob?.status === "running" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Job in Progress (#{activeJob.id.slice(0, 6)})...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 fill-white" />
-                    <span>Launch Scrape & Enrichment Job</span>
-                  </>
-                )}
-              </button>
+              {/* Buttons: Launch & Schedule Automation */}
+              <div className="space-y-2.5">
+                <button
+                  type="submit"
+                  disabled={isLaunching || activeJob?.status === "running"}
+                  className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-sm font-bold text-white shadow-xl transition duration-200 ${
+                    activeJob?.status === "running"
+                      ? "bg-gray-700 cursor-not-allowed opacity-80"
+                      : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/25 active:scale-[0.99]"
+                  }`}
+                >
+                  {isLaunching ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Initializing Engine...</span>
+                    </>
+                  ) : activeJob?.status === "running" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Job in Progress (#{activeJob.id.slice(0, 6)})...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 fill-white" />
+                      <span>Launch Scrape & Enrichment Job</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsScheduleModalOpen(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-semibold text-blue-300 bg-blue-500/10 border border-blue-500/25 hover:bg-blue-500/20 hover:text-white transition"
+                >
+                  <CalendarClock className="w-4 h-4 text-blue-400" />
+                  <span>Schedule Automated Recurring Scrape</span>
+                </button>
+              </div>
             </form>
           </div>
 
@@ -400,6 +388,12 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* Recurring Schedules Manager Card */}
+      <SchedulesList
+        onOpenCreateModal={() => setIsScheduleModalOpen(true)}
+        onJobTriggered={handleScheduledJobTriggered}
+      />
 
       {/* Recent Scrapes History Table */}
       <div className="rounded-2xl border border-border bg-surface overflow-hidden shadow-xl">
@@ -512,6 +506,15 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* Schedule Automation Modal */}
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        onScheduleCreated={() => {
+          fetchDashboardData();
+        }}
+      />
     </div>
   );
 }

@@ -124,3 +124,27 @@ export interface UserListResponse {
   total: number;
 }
 
+export type ScheduleFrequency = "daily" | "weekly" | "biweekly" | "monthly";
+
+export interface Schedule {
+  id: string;
+  niche: string;
+  state: string;
+  frequency: ScheduleFrequency;
+  day_of_week: number;
+  hour_of_day: number;
+  is_active: boolean;
+  last_run_at?: string | null;
+  next_run_at: string;
+  total_runs_count: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface ScheduleListResponse {
+  schedules: Schedule[];
+  total: number;
+}
+
+

@@ -7,9 +7,17 @@ from app.core.config import settings
 from app.core.database import engine, Base, SessionLocal
 from app.core.security import get_password_hash
 import app.models  # Ensure models are registered with Base.metadata
-from app.models.user import User
-from app.api.endpoints import scrapes_router, leads_router, settings_router, ws_router, audit_router, auth_router
+from app.api.endpoints import (
+    scrapes_router,
+    leads_router,
+    settings_router,
+    ws_router,
+    audit_router,
+    auth_router,
+    schedules_router
+)
 from app.services.websocket_manager import websocket_manager
+from app.services.scheduler_service import scheduler_loop
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,6 +48,10 @@ async def lifespan(app: FastAPI):
     # Register active event loop for WebSocket thread-safe log dispatches
     loop = asyncio.get_running_loop()
     websocket_manager.set_event_loop(loop)
+
+    # Start background scheduler periodic worker
+    scheduler_task = asyncio.create_task(scheduler_loop())
+
     print("=" * 60)
     print(f"[SERVER] {settings.PROJECT_NAME} Backend Started Successfully")
     print(f"[SERVER] Database: {settings.DATABASE_URL}")
@@ -47,6 +59,7 @@ async def lifespan(app: FastAPI):
     print("=" * 60)
     yield
     # Shutdown
+    scheduler_task.cancel()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -71,6 +84,7 @@ app.include_router(leads_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)
 app.include_router(ws_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
+app.include_router(schedules_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 def root():
