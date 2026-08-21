@@ -40,6 +40,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+*.tsbuildinfo
+frontend/*.tsbuildinfo
+
 # Playwright Test Artifacts
 test-results/
 playwright-report/

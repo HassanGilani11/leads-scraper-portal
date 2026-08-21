@@ -264,15 +264,75 @@ export async function getSettings(): Promise<SettingsResponse> {
   return res.json();
 }
 
-export async function updateSettings(apolloApiKey: string): Promise<SettingsResponse> {
+export async function updateSettings(data: {
+  apollo_api_key?: string;
+  email_provider?: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_encryption?: string;
+  smtp_username?: string;
+  smtp_password?: string;
+  sender_email?: string;
+  sender_name?: string;
+  azure_tenant_id?: string;
+  azure_client_id?: string;
+  azure_client_secret?: string;
+}): Promise<SettingsResponse> {
   const res = await authFetch(`${API_BASE}/settings/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apollo_api_key: apolloApiKey }),
+    body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to update settings");
   return res.json();
 }
+
+// ----------------- Campaign & SMTP Outreach API Methods -----------------
+
+export async function testSmtpConnection(recipient_email: string): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/campaigns/test-smtp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient_email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to send SMTP test email");
+  }
+  return res.json();
+}
+
+export async function sendAuditPitchEmail(payload: {
+  lead_id: string;
+  recipient_email: string;
+  subject: string;
+  body_html: string;
+  attach_pdf: boolean;
+}): Promise<import("@/types").EmailLog> {
+  const res = await authFetch(`${API_BASE}/campaigns/send-audit-pitch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to send audit pitch email");
+  }
+  return res.json();
+}
+
+export async function getEmailLogs(limit: number = 100): Promise<import("@/types").EmailLog[]> {
+  const res = await authFetch(`${API_BASE}/campaigns/logs?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch email dispatch logs");
+  return res.json();
+}
+
+export async function getCampaignStats(): Promise<import("@/types").CampaignStats> {
+  const res = await authFetch(`${API_BASE}/campaigns/stats`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch campaign deliverability statistics");
+  return res.json();
+}
+
 
 export async function getStatsSummary(): Promise<StatsSummary> {
   const res = await authFetch(`${API_BASE}/settings/stats`, { cache: "no-store" });

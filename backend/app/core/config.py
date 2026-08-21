@@ -24,6 +24,21 @@ class Settings(BaseSettings):
         "*"
     ]
 
+    # Email Outreach Provider Settings (SMTP or GRAPH)
+    EMAIL_PROVIDER: str = "GRAPH"  # "GRAPH" or "SMTP"
+    SMTP_HOST: str = "smtp.office365.com"
+    SMTP_PORT: int = 587
+    SMTP_ENCRYPTION: str = "STARTTLS"
+    SMTP_USERNAME: str = "sales@syntexdev.com"
+    SMTP_PASSWORD: str = ""
+    SENDER_EMAIL: str = "dev@syntexdev.com"
+    SENDER_NAME: str = "SyntexDev Dev"
+
+    # Microsoft Graph API OAuth2 (For M365 tenants with Security Defaults)
+    AZURE_TENANT_ID: str = ""
+    AZURE_CLIENT_ID: str = ""
+    AZURE_CLIENT_SECRET: str = ""
+
     class Config:
         env_file = str(ENV_PATH)
         env_file_encoding = "utf-8"
@@ -47,6 +62,13 @@ def update_env_variable(key: str, value: str):
         for k, v in env_dict.items():
             f.write(f"{k}={v}\n")
             
-    if key == "APOLLO_API_KEY":
-        settings.APOLLO_API_KEY = value
-        os.environ["APOLLO_API_KEY"] = value
+    os.environ[key] = value
+    if hasattr(settings, key):
+        if key == "SMTP_PORT":
+            try:
+                setattr(settings, key, int(value))
+            except ValueError:
+                pass
+        else:
+            setattr(settings, key, value)
+

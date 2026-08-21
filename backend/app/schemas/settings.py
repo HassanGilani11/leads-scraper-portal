@@ -11,9 +11,31 @@ class SettingsResponse(BaseModel):
     apollo_hourly_requests_left: Optional[int] = None
     apollo_hourly_limit: Optional[int] = None
     apollo_rate_limit_status: Optional[str] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_encryption: Optional[str] = None
+    smtp_username: Optional[str] = None
+    smtp_password_set: Optional[bool] = None
+    sender_email: Optional[str] = None
+    sender_name: Optional[str] = None
+    email_provider: Optional[str] = "GRAPH"
+    azure_tenant_id: Optional[str] = None
+    azure_client_id: Optional[str] = None
+    azure_client_secret_set: Optional[bool] = None
 
 class UpdateSettingsRequest(BaseModel):
-    apollo_api_key: str
+    apollo_api_key: Optional[str] = None
+    email_provider: Optional[str] = None
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_encryption: Optional[str] = None
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    sender_email: Optional[str] = None
+    sender_name: Optional[str] = None
+    azure_tenant_id: Optional[str] = None
+    azure_client_id: Optional[str] = None
+    azure_client_secret: Optional[str] = None
 
 class StatsSummaryResponse(BaseModel):
     total_leads: int

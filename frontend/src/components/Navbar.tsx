@@ -10,7 +10,8 @@ import {
   Settings as SettingsIcon, 
   LogOut,
   Shield,
-  ChevronDown
+  ChevronDown,
+  Send
 } from "lucide-react";
 import { getSettings } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -64,8 +65,10 @@ export function Navbar() {
   const navItems = [
     { name: "Scraper Studio", href: "/", icon: Radar },
     { name: "Leads Explorer", href: "/leads", icon: Users },
+    { name: "Email Campaigns", href: "/campaigns", icon: Send },
     { name: "Settings & API", href: "/settings", icon: SettingsIcon },
   ];
+
 
   return (
     <>

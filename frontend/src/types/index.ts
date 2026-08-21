@@ -78,7 +78,36 @@ export interface SettingsResponse {
   apollo_hourly_requests_left?: number | null;
   apollo_hourly_limit?: number | null;
   apollo_rate_limit_status?: string | null;
+  smtp_host?: string | null;
+  smtp_port?: number | null;
+  smtp_encryption?: string | null;
+  smtp_username?: string | null;
+  smtp_password_set?: boolean | null;
+  sender_email?: string | null;
+  sender_name?: string | null;
+  email_provider?: string | null;
+  azure_tenant_id?: string | null;
+  azure_client_id?: string | null;
+  azure_client_secret_set?: boolean | null;
 }
+
+export interface EmailLog {
+  id: string;
+  lead_id?: string | null;
+  recipient_email: string;
+  subject: string;
+  status: "sent" | "failed" | "pending";
+  error_message?: string | null;
+  sent_at: string;
+}
+
+export interface CampaignStats {
+  total_emails_sent: number;
+  successful_deliveries: number;
+  failed_deliveries: number;
+  success_rate_percentage: number;
+}
+
 
 export interface StatsSummary {
   total_leads: number;

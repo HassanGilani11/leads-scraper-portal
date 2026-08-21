@@ -28,7 +28,9 @@ import {
   Mail,
   Calendar,
   Pencil,
-  KeyRound
+  KeyRound,
+  Send,
+  Zap
 } from "lucide-react";
 import { 
   getSettings, 
@@ -38,8 +40,10 @@ import {
   updateUser, 
   deleteUser, 
   changePassword,
-  updateProfile
+  updateProfile,
+  testSmtpConnection
 } from "@/lib/api";
+
 import { SettingsResponse, User, UserRole } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 
@@ -52,6 +56,28 @@ export default function SettingsPage() {
   const [apiKeyInput, setApiKeyInput] = useState<string>("");
   const [showKey, setShowKey] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  // Email Outreach Settings state
+  const [emailProvider, setEmailProvider] = useState<"GRAPH" | "SMTP">("GRAPH");
+  const [azureTenantId, setAzureTenantId] = useState<string>("");
+  const [azureClientId, setAzureClientId] = useState<string>("");
+  const [azureClientSecret, setAzureClientSecret] = useState<string>("");
+  const [smtpHost, setSmtpHost] = useState<string>("smtp.office365.com");
+  const [smtpPort, setSmtpPort] = useState<number>(587);
+  const [smtpEncryption, setSmtpEncryption] = useState<string>("STARTTLS");
+  const [smtpUsername, setSmtpUsername] = useState<string>("sales@syntexdev.com");
+  const [smtpPassword, setSmtpPassword] = useState<string>("");
+  const [senderEmail, setSenderEmail] = useState<string>("dev@syntexdev.com");
+  const [senderName, setSenderName] = useState<string>("SyntexDev Dev");
+  const [isSavingSmtp, setIsSavingSmtp] = useState<boolean>(false);
+
+  // Test SMTP Modal state
+  const [showTestSmtpModal, setShowTestSmtpModal] = useState<boolean>(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState<string>("sales@syntexdev.com");
+  const [isTestingSmtp, setIsTestingSmtp] = useState<boolean>(false);
+  const [testModalError, setTestModalError] = useState<string | null>(null);
+  const [testModalSuccess, setTestModalSuccess] = useState<string | null>(null);
+
   
   // Users state
   const [users, setUsers] = useState<User[]>([]);
@@ -62,6 +88,7 @@ export default function SettingsPage() {
   const [newUserPassword, setNewUserPassword] = useState<string>("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("member");
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
+
 
   // Edit User modal state
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -101,6 +128,17 @@ export default function SettingsPage() {
     try {
       const data = await getSettings();
       setSettings(data);
+      if (data) {
+        if (data.email_provider) setEmailProvider((data.email_provider as any) || "GRAPH");
+        if (data.azure_tenant_id) setAzureTenantId(data.azure_tenant_id);
+        if (data.azure_client_id) setAzureClientId(data.azure_client_id);
+        if (data.smtp_host) setSmtpHost(data.smtp_host);
+        if (data.smtp_port) setSmtpPort(data.smtp_port);
+        if (data.smtp_encryption) setSmtpEncryption(data.smtp_encryption);
+        if (data.smtp_username) setSmtpUsername(data.smtp_username);
+        if (data.sender_email) setSenderEmail(data.sender_email);
+        if (data.sender_name) setSenderName(data.sender_name);
+      }
     } catch (err: any) {
       showError("Failed to load system settings from backend");
     }
@@ -145,7 +183,7 @@ export default function SettingsPage() {
     setErrorMessage(null);
 
     try {
-      const updated = await updateSettings(apiKeyInput.trim());
+      const updated = await updateSettings({ apollo_api_key: apiKeyInput.trim() });
       setSettings(updated);
       setApiKeyInput("");
       showSuccess("Apollo API Key successfully updated and saved to backend/.env");
@@ -155,6 +193,74 @@ export default function SettingsPage() {
       setIsSaving(false);
     }
   };
+
+  const handleApplyM365Presets = () => {
+    setEmailProvider("GRAPH");
+    setSenderEmail("dev@syntexdev.com");
+    setSenderName("SyntexDev Dev");
+    setAzureTenantId("d16c3f82-4193-4a50-a248-f61b0b66046f");
+    setSmtpHost("smtp.office365.com");
+    setSmtpPort(587);
+    setSmtpEncryption("STARTTLS");
+    setSmtpUsername("yasir.noor@syntexdev.com");
+    showSuccess("Applied Microsoft 365 default connection presets.");
+  };
+
+  const handleSaveSmtpSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSmtp(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    try {
+      const updated = await updateSettings({
+        email_provider: emailProvider,
+        azure_tenant_id: azureTenantId.trim(),
+        azure_client_id: azureClientId.trim(),
+        azure_client_secret: azureClientSecret.trim() || undefined,
+        smtp_host: smtpHost.trim(),
+        smtp_port: Number(smtpPort),
+        smtp_encryption: smtpEncryption.trim(),
+        smtp_username: smtpUsername.trim(),
+        smtp_password: smtpPassword.trim() || undefined,
+        sender_email: senderEmail.trim(),
+        sender_name: senderName.trim(),
+      });
+      setSettings(updated);
+      setSmtpPassword("");
+      setAzureClientSecret("");
+      showSuccess("Email Outreach Engine settings updated & saved successfully!");
+    } catch (err: any) {
+      showError(err.message || "Failed to update outreach settings");
+    } finally {
+      setIsSavingSmtp(false);
+    }
+  };
+
+  const handleTestSmtpConnection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestModalError(null);
+    setTestModalSuccess(null);
+    if (!testEmailRecipient.trim()) {
+      setTestModalError("Please enter a recipient email for testing.");
+      return;
+    }
+    setIsTestingSmtp(true);
+    try {
+      const res = await testSmtpConnection(testEmailRecipient.trim());
+      setTestModalSuccess(res.message || `Test email sent successfully to ${testEmailRecipient}`);
+      showSuccess(res.message || `Test email sent successfully to ${testEmailRecipient}`);
+      setTimeout(() => {
+        setShowTestSmtpModal(false);
+      }, 2000);
+    } catch (err: any) {
+      const errorMsg = err.message || "SMTP test failed. Please verify password and M365 settings.";
+      setTestModalError(errorMsg);
+      showError(errorMsg);
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,11 +621,254 @@ export default function SettingsPage() {
             )}
           </div>
 
+          {/* Outreach Email Engine Settings */}
+          <div className="rounded-2xl border border-border bg-surface p-6 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-blue-400" /> Microsoft 365 Outreach Email Engine
+                  </h2>
+                  {(emailProvider === "GRAPH" ? (settings?.azure_client_secret_set && settings?.azure_client_id) : settings?.smtp_password_set) ? (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                      <ShieldCheck className="h-3 w-3" /> {emailProvider === "GRAPH" ? "Graph API Ready" : "SMTP Connected"}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                      Setup Required
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400">
+                  Sends automated cold outreach pitches & PDF audit reports directly via your Microsoft 365 account or shared mailbox.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleApplyM365Presets}
+                  className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 font-semibold bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-xl transition"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Apply M365 Presets
+                </button>
+              </div>
+            </div>
+
+            {/* Protocol Selector Tabs */}
+            <div className="flex items-center gap-2 p-1 bg-surface-raised border border-border rounded-xl w-fit">
+              <button
+                type="button"
+                onClick={() => setEmailProvider("GRAPH")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  emailProvider === "GRAPH"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Zap className="h-3.5 w-3.5" /> Microsoft Graph API (Modern & Recommended)
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailProvider("SMTP")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  emailProvider === "SMTP"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Mail className="h-3.5 w-3.5" /> Classic SMTP
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSmtpSettings} className="space-y-4 text-xs">
+              {emailProvider === "GRAPH" ? (
+                <>
+                  <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3.5 text-xs text-blue-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5" /> Microsoft Graph OAuth2 Active
+                    </p>
+                    <p className="text-[11px] text-blue-200/80 leading-relaxed">
+                      Sends cold emails and attached PDF dossiers directly through your shared mailbox (e.g. <code>dev@syntexdev.com</code>) without password restrictions or Security Defaults blocks.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">
+                        Directory (Tenant) ID
+                      </label>
+                      <input
+                        type="text"
+                        value={azureTenantId}
+                        onChange={(e) => setAzureTenantId(e.target.value)}
+                        placeholder="d16c3f82-4193-4a50-a248-f61b0b66046f"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">
+                        Application (Client) ID
+                      </label>
+                      <input
+                        type="text"
+                        value={azureClientId}
+                        onChange={(e) => setAzureClientId(e.target.value)}
+                        placeholder="Paste Application (client) ID from App Overview..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">
+                        Client Secret {settings?.azure_client_secret_set && <span className="text-[10px] text-emerald-400 font-normal">(Secret Saved)</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={azureClientSecret}
+                        onChange={(e) => setAzureClientSecret(e.target.value)}
+                        placeholder={settings?.azure_client_secret_set ? "•••••••••••• (Leave blank to keep)" : "Enter Azure Client Secret Value..."}
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none font-mono text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Sender Mailbox</label>
+                      <input
+                        type="email"
+                        value={senderEmail}
+                        onChange={(e) => setSenderEmail(e.target.value)}
+                        placeholder="dev@syntexdev.com"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Sender Display Name</label>
+                      <input
+                        type="text"
+                        value={senderName}
+                        onChange={(e) => setSenderName(e.target.value)}
+                        placeholder="SyntexDev Dev"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">SMTP Host</label>
+                      <input
+                        type="text"
+                        value={smtpHost}
+                        onChange={(e) => setSmtpHost(e.target.value)}
+                        placeholder="smtp.office365.com"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Port</label>
+                      <input
+                        type="number"
+                        value={smtpPort}
+                        onChange={(e) => setSmtpPort(Number(e.target.value))}
+                        placeholder="587"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Encryption</label>
+                      <select
+                        value={smtpEncryption}
+                        onChange={(e) => setSmtpEncryption(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-border text-white focus:border-blue-500 focus:outline-none font-mono"
+                      >
+                        <option value="STARTTLS">STARTTLS (Port 587)</option>
+                        <option value="SSL">SSL / TLS (Port 465)</option>
+                        <option value="NONE">None (Plain)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">SMTP Username / M365 Email</label>
+                      <input
+                        type="email"
+                        value={smtpUsername}
+                        onChange={(e) => setSmtpUsername(e.target.value)}
+                        placeholder="yasir.noor@syntexdev.com"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">
+                        SMTP Password {settings?.smtp_password_set && <span className="text-[10px] text-emerald-400 font-normal">(Password Saved)</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={smtpPassword}
+                        onChange={(e) => setSmtpPassword(e.target.value)}
+                        placeholder={settings?.smtp_password_set ? "•••••••••••• (Leave blank to keep)" : "Enter M365 Password or App Password..."}
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">From Sender Email</label>
+                      <input
+                        type="email"
+                        value={senderEmail}
+                        onChange={(e) => setSenderEmail(e.target.value)}
+                        placeholder="dev@syntexdev.com"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">From Sender Name</label>
+                      <input
+                        type="text"
+                        value={senderName}
+                        onChange={(e) => setSenderName(e.target.value)}
+                        placeholder="SyntexDev Dev"
+                        className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTestSmtpModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-raised hover:bg-border border border-border text-xs font-semibold text-gray-200 transition"
+                >
+                  <Send className="h-3.5 w-3.5 text-blue-400" /> Send Test Email
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSavingSmtp}
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-bold text-white transition disabled:opacity-40 shadow-lg shadow-blue-600/20"
+                >
+                  {isSavingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Email Settings
+                </button>
+              </div>
+            </form>
+          </div>
+
           <div className="rounded-2xl border border-border bg-surface p-6 shadow-xl space-y-6">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Server className="h-5 w-5 text-indigo-400" />
               Subsystem Diagnostics & Architecture
             </h2>
+
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div className="rounded-xl bg-surface-raised border border-border p-4 space-y-2">
@@ -1095,6 +1444,84 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+      {/* Test SMTP Connection Modal */}
+      {showTestSmtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Send className="h-4 w-4 text-blue-400" /> Send Test Diagnostic Email
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTestSmtpModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-300">
+              Verify your Microsoft 365 SMTP connection by sending a diagnostic test email.
+            </p>
+
+            {testModalSuccess && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-300 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-400" />
+                <div>
+                  <p className="font-semibold">Connection Verified!</p>
+                  <p className="mt-0.5 text-[11px] text-emerald-300/80">{testModalSuccess}</p>
+                </div>
+              </div>
+            )}
+
+            {testModalError && (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
+                <div className="space-y-1">
+                  <p className="font-semibold">SMTP Connection Failed</p>
+                  <p className="text-[11px] text-rose-200/90 leading-relaxed break-words">{testModalError}</p>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleTestSmtpConnection} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Recipient Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={testEmailRecipient}
+                  onChange={(e) => setTestEmailRecipient(e.target.value)}
+                  placeholder="sales@syntexdev.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTestSmtpModal(false)}
+                  className="px-4 py-2 text-xs text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isTestingSmtp}
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-bold text-white transition disabled:opacity-50"
+                >
+                  {isTestingSmtp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isTestingSmtp ? "Dispatching..." : "Send Test Email"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

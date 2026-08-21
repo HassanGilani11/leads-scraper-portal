@@ -71,6 +71,17 @@ def get_settings(
         "apollo_hourly_requests_left": quota_info["hourly_left"],
         "apollo_hourly_limit": quota_info["hourly_limit"],
         "apollo_rate_limit_status": quota_info["status"],
+        "smtp_host": settings.SMTP_HOST,
+        "smtp_port": settings.SMTP_PORT,
+        "smtp_encryption": settings.SMTP_ENCRYPTION,
+        "smtp_username": settings.SMTP_USERNAME,
+        "smtp_password_set": bool(settings.SMTP_PASSWORD),
+        "sender_email": settings.SENDER_EMAIL,
+        "sender_name": settings.SENDER_NAME,
+        "email_provider": settings.EMAIL_PROVIDER,
+        "azure_tenant_id": settings.AZURE_TENANT_ID,
+        "azure_client_id": settings.AZURE_CLIENT_ID,
+        "azure_client_secret_set": bool(settings.AZURE_CLIENT_SECRET),
     }
 
 @router.post("/", response_model=SettingsResponse)
@@ -80,18 +91,40 @@ def update_settings(
     admin: User = Depends(require_admin)
 ):
     """
-    Update the Apollo API key dynamically and persist to backend/.env (Admin only).
+    Update Apollo API key, SMTP settings, and Microsoft Graph OAuth settings (Admin only).
     """
-    new_key = payload.apollo_api_key.strip()
-    update_env_variable("APOLLO_API_KEY", new_key)
+    if payload.apollo_api_key is not None:
+        update_env_variable("APOLLO_API_KEY", payload.apollo_api_key.strip())
+    if payload.email_provider is not None:
+        update_env_variable("EMAIL_PROVIDER", payload.email_provider.strip())
+    if payload.smtp_host is not None:
+        update_env_variable("SMTP_HOST", payload.smtp_host.strip())
+    if payload.smtp_port is not None:
+        update_env_variable("SMTP_PORT", str(payload.smtp_port))
+    if payload.smtp_encryption is not None:
+        update_env_variable("SMTP_ENCRYPTION", payload.smtp_encryption.strip())
+    if payload.smtp_username is not None:
+        update_env_variable("SMTP_USERNAME", payload.smtp_username.strip())
+    if payload.smtp_password is not None and payload.smtp_password.strip():
+        update_env_variable("SMTP_PASSWORD", payload.smtp_password.strip())
+    if payload.sender_email is not None:
+        update_env_variable("SENDER_EMAIL", payload.sender_email.strip())
+    if payload.sender_name is not None:
+        update_env_variable("SENDER_NAME", payload.sender_name.strip())
+    if payload.azure_tenant_id is not None:
+        update_env_variable("AZURE_TENANT_ID", payload.azure_tenant_id.strip())
+    if payload.azure_client_id is not None:
+        update_env_variable("AZURE_CLIENT_ID", payload.azure_client_id.strip())
+    if payload.azure_client_secret is not None and payload.azure_client_secret.strip():
+        update_env_variable("AZURE_CLIENT_SECRET", payload.azure_client_secret.strip())
     
     total_jobs = db.query(Job).count()
     total_leads = db.query(Lead).count()
-    quota_info = check_apollo_quota(new_key)
+    quota_info = check_apollo_quota(settings.APOLLO_API_KEY)
 
     return {
-        "apollo_api_key_set": bool(new_key),
-        "apollo_api_key_masked": mask_api_key(new_key),
+        "apollo_api_key_set": bool(settings.APOLLO_API_KEY),
+        "apollo_api_key_masked": mask_api_key(settings.APOLLO_API_KEY),
         "database_url": "SQLite (local leads.db)",
         "playwright_ready": True,
         "total_jobs": total_jobs,
@@ -99,7 +132,19 @@ def update_settings(
         "apollo_hourly_requests_left": quota_info["hourly_left"],
         "apollo_hourly_limit": quota_info["hourly_limit"],
         "apollo_rate_limit_status": quota_info["status"],
+        "smtp_host": settings.SMTP_HOST,
+        "smtp_port": settings.SMTP_PORT,
+        "smtp_encryption": settings.SMTP_ENCRYPTION,
+        "smtp_username": settings.SMTP_USERNAME,
+        "smtp_password_set": bool(settings.SMTP_PASSWORD),
+        "sender_email": settings.SENDER_EMAIL,
+        "sender_name": settings.SENDER_NAME,
+        "email_provider": settings.EMAIL_PROVIDER,
+        "azure_tenant_id": settings.AZURE_TENANT_ID,
+        "azure_client_id": settings.AZURE_CLIENT_ID,
+        "azure_client_secret_set": bool(settings.AZURE_CLIENT_SECRET),
     }
+
 
 @router.get("/stats", response_model=StatsSummaryResponse)
 def get_stats_summary(

@@ -31,7 +31,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Lead, AuditReport } from "@/types";
-import { getWebsiteAudit, getAuditPdfUrl } from "@/lib/api";
+import { getWebsiteAudit, getAuditPdfUrl, sendAuditPitchEmail } from "@/lib/api";
+
 
 interface LeadModalProps {
   lead: Lead | null;
@@ -47,11 +48,79 @@ export function LeadModal({ lead, onClose }: LeadModalProps) {
   const [auditLoading, setAuditLoading] = useState<boolean>(false);
   const [auditError, setAuditError] = useState<string | null>(null);
 
+  // Email Outreach Modal State
+  const [showSendEmailModal, setShowSendEmailModal] = useState<boolean>(false);
+  const [emailRecipient, setEmailRecipient] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState<string>("");
+  const [emailBody, setEmailBody] = useState<string>("");
+  const [attachPdf, setAttachPdf] = useState<boolean>(true);
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+  const [sendEmailSuccess, setSendEmailSuccess] = useState<string | null>(null);
+  const [sendEmailError, setSendEmailError] = useState<string | null>(null);
+
   useEffect(() => {
     setAuditReport(null);
     setAuditError(null);
     setActiveTab("profile");
+    setShowSendEmailModal(false);
   }, [lead]);
+
+  const handleOpenSendEmailModal = () => {
+    if (!lead) return;
+    const targetEmail = lead.email || lead.business_email || "";
+    setEmailRecipient(targetEmail);
+    const pitchTitle = auditReport?.pitch_opportunities
+      ? auditReport.pitch_opportunities.split(" | ")[0]
+      : "Website Technical Audit";
+    setEmailSubject(`Website Audit & Growth Pitch for ${lead.business_name || "your business"} - ${pitchTitle}`);
+    setEmailBody(auditReport?.cold_email_draft || "");
+    setAttachPdf(true);
+    setSendEmailSuccess(null);
+    setSendEmailError(null);
+    setShowSendEmailModal(true);
+  };
+
+  const handleDispatchAuditEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailRecipient.trim()) {
+      setSendEmailError("Please specify a recipient email address.");
+      return;
+    }
+    setIsSendingEmail(true);
+    setSendEmailSuccess(null);
+    setSendEmailError(null);
+
+    try {
+      const formattedHtml = `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <div style="white-space: pre-wrap; line-height: 1.6; font-size: 15px; color: #334155;">
+            ${emailBody.replace(/\n/g, '<br/>')}
+          </div>
+          <hr style="margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;" />
+          <p style="font-size: 12px; color: #64748b; font-style: italic;">
+            📎 Attached: <strong>Website Technical & Commercial Audit Dossier (PDF)</strong>
+          </p>
+        </div>
+      `;
+
+      await sendAuditPitchEmail({
+        lead_id: lead!.id,
+        recipient_email: emailRecipient.trim(),
+        subject: emailSubject.trim(),
+        body_html: formattedHtml,
+        attach_pdf: attachPdf,
+      });
+      setSendEmailSuccess(`Pitch email successfully dispatched via M365 to ${emailRecipient}!`);
+      setTimeout(() => {
+        setShowSendEmailModal(false);
+      }, 2000);
+    } catch (err: any) {
+      setSendEmailError(err.message || "Failed to send email. Check SMTP settings in Settings page.");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
 
   if (!lead) return null;
 
@@ -438,17 +507,28 @@ export function LeadModal({ lead, onClose }: LeadModalProps) {
                       </div>
                     </div>
 
-                    {/* PDF Download Button */}
-                    <a
-                      href={getAuditPdfUrl(lead.id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-bold text-white transition shadow-lg shadow-blue-600/30 shrink-0"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download Client PDF Report
-                    </a>
+                    {/* Action Buttons: PDF & Email Dispatch */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <a
+                        href={getAuditPdfUrl(lead.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl bg-surface hover:bg-surface-raised border border-border px-4 py-2 text-xs font-semibold text-white transition shadow-sm"
+                      >
+                        <Download className="h-4 w-4 text-blue-400" />
+                        Download PDF
+                      </a>
+
+                      <button
+                        onClick={handleOpenSendEmailModal}
+                        className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2 text-xs font-bold text-white transition shadow-lg shadow-blue-600/30"
+                      >
+                        <Send className="h-4 w-4" />
+                        Send Pitch Email
+                      </button>
+                    </div>
                   </div>
+
 
                   {/* Commercial Matrix: Payment & Shipping */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -573,6 +653,123 @@ export function LeadModal({ lead, onClose }: LeadModalProps) {
           </button>
         </div>
       </div>
+      {/* Send Pitch Email Modal Drawer */}
+      {showSendEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-5 custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Send className="h-4.5 w-4.5 text-blue-400" /> Send Cold Pitch Email via M365
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Target Business: <span className="text-white font-semibold">{lead.business_name}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSendEmailModal(false)}
+                className="text-gray-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {sendEmailSuccess && (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-400 flex items-center gap-2">
+                <Check className="h-4 w-4 shrink-0" />
+                <span>{sendEmailSuccess}</span>
+              </div>
+            )}
+
+            {sendEmailError && (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-4 text-xs text-rose-400 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{sendEmailError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDispatchAuditEmail} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Recipient Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={emailRecipient}
+                  onChange={(e) => setEmailRecipient(e.target.value)}
+                  placeholder="e.g. contact@business.com.au"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Email Subject Line
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-raised border border-border text-xs text-white focus:border-blue-500 focus:outline-none font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">
+                  Email Body Copy
+                </label>
+                <textarea
+                  rows={8}
+                  required
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  className="w-full p-3.5 rounded-xl bg-[#090d14] border border-border text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none leading-relaxed custom-scrollbar"
+                />
+              </div>
+
+              <div className="rounded-xl bg-surface-raised border border-border p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="attachPdf"
+                    checked={attachPdf}
+                    onChange={(e) => setAttachPdf(e.target.checked)}
+                    className="h-4 w-4 rounded bg-surface border-border text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="attachPdf" className="text-xs text-gray-300 font-medium cursor-pointer">
+                    Attach Vector PDF Audit Dossier
+                  </label>
+                </div>
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Recommended
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowSendEmailModal(false)}
+                  className="px-4 py-2 text-xs text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSendingEmail}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-6 py-2.5 text-xs font-bold text-white transition disabled:opacity-50 shadow-lg shadow-blue-500/25"
+                >
+                  {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isSendingEmail ? "Dispatching via M365..." : "Send Pitch Email Now"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

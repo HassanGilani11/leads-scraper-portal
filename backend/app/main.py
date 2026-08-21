@@ -15,8 +15,10 @@ from app.api.endpoints import (
     ws_router,
     audit_router,
     auth_router,
-    schedules_router
+    schedules_router,
+    campaigns_router
 )
+
 from app.services.websocket_manager import websocket_manager
 from app.services.scheduler_service import scheduler_loop
 
@@ -92,6 +94,8 @@ app.include_router(settings_router, prefix=settings.API_V1_STR)
 app.include_router(ws_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(schedules_router, prefix=settings.API_V1_STR)
+app.include_router(campaigns_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/")
 def root():
