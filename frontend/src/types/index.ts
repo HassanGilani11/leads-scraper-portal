@@ -93,15 +93,53 @@ export interface SettingsResponse {
 
 export interface EmailLog {
   id: string;
+  campaign_id?: string | null;
   lead_id?: string | null;
+  business_name?: string | null;
   recipient_email: string;
   subject: string;
   status: "sent" | "failed" | "pending";
   error_message?: string | null;
+  attached_pdf?: boolean;
   sent_at: string;
 }
 
+export interface Campaign {
+  id: string;
+  name: string;
+  subject_template: string;
+  body_template: string;
+  status: "queued" | "running" | "paused" | "completed" | "cancelled" | "failed";
+  total_leads: number;
+  sent_count: number;
+  failed_count: number;
+  attach_pdf: boolean;
+  delay_min_seconds: number;
+  delay_max_seconds: number;
+  created_by?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface CampaignDetail extends Campaign {
+  logs: EmailLog[];
+}
+
+export interface CreateCampaignPayload {
+  name: string;
+  subject_template: string;
+  body_template: string;
+  lead_ids?: string[];
+  state_filter?: string;
+  niche_filter?: string;
+  min_score?: number;
+  attach_pdf?: boolean;
+  delay_min_seconds?: number;
+  delay_max_seconds?: number;
+}
+
 export interface CampaignStats {
+  total_campaigns: number;
   total_emails_sent: number;
   successful_deliveries: number;
   failed_deliveries: number;

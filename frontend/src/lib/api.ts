@@ -287,7 +287,7 @@ export async function updateSettings(data: {
   return res.json();
 }
 
-// ----------------- Campaign & SMTP Outreach API Methods -----------------
+// ----------------- Campaign & Outreach API Methods -----------------
 
 export async function testSmtpConnection(recipient_email: string): Promise<{ status: string; message: string }> {
   const res = await authFetch(`${API_BASE}/campaigns/test-smtp`, {
@@ -297,7 +297,7 @@ export async function testSmtpConnection(recipient_email: string): Promise<{ sta
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to send SMTP test email");
+    throw new Error(err.detail || "Failed to send test email");
   }
   return res.json();
 }
@@ -321,14 +321,45 @@ export async function sendAuditPitchEmail(payload: {
   return res.json();
 }
 
+export async function createAndDispatchCampaign(payload: import("@/types").CreateCampaignPayload): Promise<import("@/types").Campaign> {
+  const res = await authFetch(`${API_BASE}/campaigns/create-and-dispatch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create campaign");
+  }
+  return res.json();
+}
+
+export async function listCampaigns(limit: number = 50): Promise<import("@/types").Campaign[]> {
+  const res = await authFetch(`${API_BASE}/campaigns/?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch campaigns");
+  return res.json();
+}
+
+export async function getCampaignDetail(campaignId: string): Promise<import("@/types").CampaignDetail> {
+  const res = await authFetch(`${API_BASE}/campaigns/${campaignId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch campaign details");
+  return res.json();
+}
+
+export async function cancelCampaign(campaignId: string): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/campaigns/${campaignId}/cancel`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to cancel campaign");
+  return res.json();
+}
+
 export async function getEmailLogs(limit: number = 100): Promise<import("@/types").EmailLog[]> {
-  const res = await authFetch(`${API_BASE}/campaigns/logs?limit=${limit}`, { cache: "no-store" });
+  const res = await authFetch(`${API_BASE}/campaigns/logs/all?limit=${limit}`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch email dispatch logs");
   return res.json();
 }
 
 export async function getCampaignStats(): Promise<import("@/types").CampaignStats> {
-  const res = await authFetch(`${API_BASE}/campaigns/stats`, { cache: "no-store" });
+  const res = await authFetch(`${API_BASE}/campaigns/metrics/summary`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch campaign deliverability statistics");
   return res.json();
 }

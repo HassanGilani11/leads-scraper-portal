@@ -20,9 +20,16 @@ import {
   ArrowUp,
   ArrowDown,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  Send,
+  Sparkles,
+  CheckSquare,
+  Square,
+  Zap,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
-import { getLeads, getExportCsvUrl, getJobs } from "@/lib/api";
+import { getLeads, getExportCsvUrl, getJobs, createAndDispatchCampaign } from "@/lib/api";
 import { Lead, Job } from "@/types";
 import { LeadModal } from "@/components/LeadModal";
 import { formatDate, truncateText } from "@/lib/utils";
@@ -44,6 +51,23 @@ function LeadsExplorerContent() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(25);
+
+  // Selection & Campaign Launch States
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [showCampaignModal, setShowCampaignModal] = useState<boolean>(false);
+  const [campaignName, setCampaignName] = useState<string>("");
+  const [subjectTemplate, setSubjectTemplate] = useState<string>("Technical Audit & Performance Insights for {{company_name}}");
+  const [bodyTemplate, setBodyTemplate] = useState<string>(`<p>Hi {{first_name}},</p>
+<p>I was reviewing top companies in <strong>{{city}}</strong> and analyzed <strong>{{company_name}}</strong>.</p>
+<p>Our team generated a complimentary <strong>Technical Website Audit Dossier</strong> for <strong>{{website}}</strong> (Score: <strong>{{audit_score}}/100</strong>).</p>
+<p>I have attached the full PDF report to this email.</p>
+<p>Would you be open to a 5-minute chat this week to walk through the growth opportunities?</p>
+<p>Best regards,<br>SyntexDev Growth Team<br>dev@syntexdev.com</p>`);
+  const [attachPdf, setAttachPdf] = useState<boolean>(true);
+  const [delayMin, setDelayMin] = useState<number>(45);
+  const [delayMax, setDelayMax] = useState<number>(90);
+  const [isSubmittingCampaign, setIsSubmittingCampaign] = useState<boolean>(false);
+  const [campaignMessage, setCampaignMessage] = useState<string | null>(null);
 
   // Data & Modal States
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -123,6 +147,60 @@ function LeadsExplorerContent() {
     setPage(1);
   };
 
+  const toggleSelectLead = (leadId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedLeadIds((prev) =>
+      prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]
+    );
+  };
+
+  const toggleSelectAllPage = () => {
+    const pageLeadIds = leads.map((l) => l.id);
+    const allSelected = pageLeadIds.every((id) => selectedLeadIds.includes(id));
+    if (allSelected) {
+      setSelectedLeadIds((prev) => prev.filter((id) => !pageLeadIds.includes(id)));
+    } else {
+      setSelectedLeadIds((prev) => Array.from(new Set([...prev, ...pageLeadIds])));
+    }
+  };
+
+  const handleOpenCampaignModal = () => {
+    if (selectedLeadIds.length === 0) return;
+    setCampaignName(`Targeted Batch (${selectedLeadIds.length} leads) - ${new Date().toLocaleDateString("en-AU")}`);
+    setShowCampaignModal(true);
+  };
+
+  const handleDispatchSelectedCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campaignName.trim() || !subjectTemplate.trim() || !bodyTemplate.trim()) return;
+
+    setIsSubmittingCampaign(true);
+    setCampaignMessage(null);
+
+    try {
+      await createAndDispatchCampaign({
+        name: campaignName.trim(),
+        subject_template: subjectTemplate.trim(),
+        body_template: bodyTemplate.trim(),
+        lead_ids: selectedLeadIds,
+        attach_pdf: attachPdf,
+        delay_min_seconds: delayMin,
+        delay_max_seconds: delayMax,
+      });
+
+      setCampaignMessage(`Successfully launched campaign on ${selectedLeadIds.length} selected leads!`);
+      setTimeout(() => {
+        setShowCampaignModal(false);
+        setSelectedLeadIds([]);
+        setCampaignMessage(null);
+      }, 2000);
+    } catch (err: any) {
+      setCampaignMessage(`Error: ${err.message || "Failed to launch campaign."}`);
+    } finally {
+      setIsSubmittingCampaign(false);
+    }
+  };
+
   const activeFiltersCount = 
     (selectedJobId ? 1 : 0) + 
     (selectedState ? 1 : 0) + 
@@ -131,8 +209,10 @@ function LeadsExplorerContent() {
     (hasLinkedin ? 1 : 0) + 
     (search ? 1 : 0);
 
+  const isAllPageSelected = leads.length > 0 && leads.every((l) => selectedLeadIds.includes(l.id));
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
@@ -309,7 +389,21 @@ function LeadsExplorerContent() {
           <table className="w-full text-left text-xs border-collapse">
             <thead className="bg-surface-raised text-gray-400 uppercase tracking-wider font-semibold border-b border-border whitespace-nowrap select-none">
               <tr>
-                <th className="px-4 py-3.5">#</th>
+                <th className="px-3 py-3.5 text-center w-10">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllPage}
+                    className="text-gray-400 hover:text-white transition flex items-center justify-center mx-auto"
+                    title={isAllPageSelected ? "Deselect page" : "Select all on page"}
+                  >
+                    {isAllPageSelected ? (
+                      <CheckSquare className="h-4 w-4 text-blue-400" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+                </th>
+                <th className="px-3 py-3.5">#</th>
                 <th
                   onClick={() => handleSort("business_name")}
                   className="px-4 py-3.5 cursor-pointer hover:text-white transition"
@@ -335,7 +429,7 @@ function LeadsExplorerContent() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-16 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
                       <span>Loading enriched leads...</span>
@@ -344,7 +438,7 @@ function LeadsExplorerContent() {
                 </tr>
               ) : leads.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-16 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                       <Building2 className="h-8 w-8 text-gray-600" />
                       <p className="text-gray-300 font-semibold">No Leads Found</p>
@@ -359,14 +453,29 @@ function LeadsExplorerContent() {
                   const emailDisplay = lead.email || lead.business_email;
                   const phoneDisplay = lead.phone_number || lead.office_contact;
                   const creds = lead.keywords || lead.technologies_used || lead.industries || "";
+                  const isSelected = selectedLeadIds.includes(lead.id);
+
                   return (
                     <tr
                       key={lead.id}
                       onClick={() => setSelectedLead(lead)}
-                      className="hover:bg-surface-raised/50 cursor-pointer transition"
+                      className={`hover:bg-surface-raised/50 cursor-pointer transition ${
+                        isSelected ? "bg-blue-600/10" : ""
+                      }`}
                     >
+                      {/* Select Checkbox */}
+                      <td className="px-3 py-3 text-center" onClick={(e) => toggleSelectLead(lead.id, e)}>
+                        <button type="button" className="text-gray-400 hover:text-white transition flex items-center justify-center mx-auto">
+                          {isSelected ? (
+                            <CheckSquare className="h-4 w-4 text-blue-400" />
+                          ) : (
+                            <Square className="h-4 w-4 text-gray-600 hover:text-gray-400" />
+                          )}
+                        </button>
+                      </td>
+
                       {/* Index */}
-                      <td className="px-4 py-3 text-gray-600 font-mono">
+                      <td className="px-3 py-3 text-gray-600 font-mono">
                         {(page - 1) * limit + index + 1}
                       </td>
 
@@ -519,6 +628,138 @@ function LeadsExplorerContent() {
         </div>
       </div>
 
+      {/* Floating Bulk Action Bar */}
+      {selectedLeadIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-surface/95 backdrop-blur-md border border-blue-500/30 shadow-2xl rounded-2xl px-6 py-3.5 flex items-center gap-4 animate-in slide-in-from-bottom-5">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="text-xs font-bold text-white">
+              {selectedLeadIds.length} lead{selectedLeadIds.length > 1 ? "s" : ""} selected
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenCampaignModal}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white transition shadow-lg shadow-blue-600/30"
+            >
+              <Send className="h-3.5 w-3.5" /> Launch Cold Campaign
+            </button>
+
+            <button
+              onClick={() => setSelectedLeadIds([])}
+              className="px-3 py-2 text-xs text-gray-400 hover:text-white transition"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign Launch Modal for Selected Leads */}
+      {showCampaignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-400" /> Launch Outreach to {selectedLeadIds.length} Selected Leads
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCampaignModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {campaignMessage && (
+              <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                campaignMessage.startsWith("Error") ? "bg-rose-500/10 border border-rose-500/20 text-rose-300" : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+              }`}>
+                {campaignMessage.startsWith("Error") ? <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />}
+                <span>{campaignMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDispatchSelectedCampaign} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">Campaign Batch Name</label>
+                <input
+                  type="text"
+                  required
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">Subject Template</label>
+                <input
+                  type="text"
+                  required
+                  value={subjectTemplate}
+                  onChange={(e) => setSubjectTemplate(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white font-mono text-xs focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">HTML Pitch Body (supports merge tags)</label>
+                <textarea
+                  rows={6}
+                  required
+                  value={bodyTemplate}
+                  onChange={(e) => setBodyTemplate(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-surface-raised border border-border text-white font-mono text-xs focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-blue-400" /> Domain Safety Jitter Delay
+                  </span>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={attachPdf}
+                      onChange={(e) => setAttachPdf(e.target.checked)}
+                      className="rounded bg-surface-raised border-border text-blue-600 focus:ring-0"
+                    />
+                    <span className="font-semibold text-gray-300 text-xs">Attach PDF Technical Audit</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-blue-200/80">
+                  Sends 1 email every {delayMin}-{delayMax}s to safeguard domain reputation against blacklisting.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowCampaignModal(false)}
+                  className="px-4 py-2 text-xs text-gray-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCampaign}
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-6 py-2.5 text-xs font-bold text-white transition disabled:opacity-50 shadow-lg shadow-blue-600/20"
+                >
+                  {isSubmittingCampaign ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {isSubmittingCampaign ? "Dispatching..." : "Launch Paced Campaign"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Lead Dossier Detail Modal */}
       <LeadModal
         lead={selectedLead}
@@ -541,3 +782,4 @@ export default function LeadsExplorerPage() {
     </Suspense>
   );
 }
+
