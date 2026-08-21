@@ -13,12 +13,12 @@ class AuditReport(Base):
     
     # Audit Scores & Status
     health_score = Column(Integer, default=75)  # 0 to 100
-    ssl_active = Column(String(10), default="Yes")
-    mobile_optimized = Column(String(10), default="Yes")
-    load_time_seconds = Column(String(20), default="1.2s")
+    ssl_active = Column(String(100), default="Yes (Active)")
+    mobile_optimized = Column(String(100), default="Yes (Responsive)")
+    load_time_seconds = Column(String(100), default="1.2s")
     
     # JSON or Comma-separated detected items
-    cms_platform = Column(String(100), default="Custom")
+    cms_platform = Column(String(255), default="Custom")
     payment_gateways = Column(Text, default="")    # e.g. "Stripe, PayPal, Afterpay"
     shipping_carriers = Column(Text, default="")   # e.g. "Australia Post, Sendle"
     marketing_pixels = Column(Text, default="")    # e.g. "Google Analytics 4, Meta Pixel"

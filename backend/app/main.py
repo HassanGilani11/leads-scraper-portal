@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
 from app.core.config import settings
-from app.core.database import engine, Base, SessionLocal
+from app.core.database import engine, Base, SessionLocal, is_sqlite
 from app.core.security import get_password_hash
 import app.models  # Ensure models are registered with Base.metadata
 from app.models.user import User
@@ -27,6 +28,19 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables if not existing
     Base.metadata.create_all(bind=engine)
     
+    # Auto-migrate columns if existing PostgreSQL tables had narrower VARCHAR limits
+    if not is_sqlite:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN ssl_active TYPE VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN mobile_optimized TYPE VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN load_time_seconds TYPE VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN cms_platform TYPE VARCHAR(255);"))
+                conn.commit()
+                print("[DB MIGRATION] PostgreSQL audit_reports columns expanded successfully.")
+            except Exception as mig_err:
+                print(f"[DB MIGRATION] Schema check note: {mig_err}")
+
     # Auto-seed and verify Super Admin credentials
     db = SessionLocal()
     try:
