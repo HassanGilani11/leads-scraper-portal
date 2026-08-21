@@ -27,7 +27,8 @@ import {
   Send,
   Loader2,
   Sparkles,
-  Zap
+  Zap,
+  CheckCircle2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Lead, AuditReport } from "@/types";
@@ -495,13 +496,15 @@ export function LeadModal({ lead, onClose }: LeadModalProps) {
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-white flex items-center gap-2">
-                          <span>Technical & Growth Audit</span>
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Scan Verified
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h3 className="text-base font-bold text-white">
+                            Technical &amp; Growth Audit
+                          </h3>
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap inline-flex items-center gap-1 font-semibold">
+                            <CheckCircle2 className="h-3 w-3" /> Verified
                           </span>
-                        </h3>
-                        <p className="text-xs text-gray-300 mt-0.5">
+                        </div>
+                        <p className="text-xs text-gray-300 mt-1">
                           CMS: <span className="text-blue-400 font-semibold">{auditReport.cms_platform}</span> • Load: <span className="font-mono text-white">{auditReport.load_time_seconds}</span>
                         </p>
                       </div>

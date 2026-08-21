@@ -1,5 +1,6 @@
 import io
 import re
+import html
 from datetime import datetime
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -19,6 +20,38 @@ from app.models.lead import Lead
 from app.models.audit import AuditReport
 
 
+def sanitize_pdf_text(text: str, escape_xml: bool = True) -> str:
+    """
+    Sanitizes string for ReportLab's standard Helvetica font:
+    - Removes emojis and unprintable unicode symbols that render as black squares (■).
+    - Normalizes middle dots and dashes.
+    - Escapes XML special characters (<, >, &) so strings like <h1> aren't stripped as HTML tags.
+    """
+    if not text:
+        return ""
+    s = str(text)
+    # Replace unicode quotes and hyphens
+    s = s.replace("\u2018", "'").replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"')
+    s = s.replace("\u2013", "-").replace("\u2014", "-").replace("\u2022", "-").replace("\u00b7", "-").replace("\u2027", "-")
+    s = s.replace("■", "").replace("⚠", "").replace("✓", "").replace("📍", "").replace("🏢", "").replace("⚡", "")
+    
+    # Strip any high-range non-ASCII characters that Helvetica can't render
+    clean_chars = []
+    for ch in s:
+        code = ord(ch)
+        if code < 128:
+            clean_chars.append(ch)
+        else:
+            clean_chars.append(" ")
+    s = "".join(clean_chars)
+    s = re.sub(r"\s*-\s*-\s*", " - ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+
+    if escape_xml:
+        s = html.escape(s)
+    return s
+
+
 def extract_clean_abn_license(text: str) -> str:
     """Filter out long keyword dumps and retain clean ABN & Contractor License numbers."""
     if not text:
@@ -26,7 +59,7 @@ def extract_clean_abn_license(text: str) -> str:
     parts = [p.strip() for p in text.split(",") if p.strip()]
     abn_lic_parts = [p for p in parts if p.startswith("ABN:") or p.startswith("Lic:")]
     if abn_lic_parts:
-        return " • ".join(abn_lic_parts)
+        return " - ".join(abn_lic_parts)
     # Check regex in text
     m_abn = re.search(r"\bABN\b\s*[:\s]*([0-9\s]{11,14})", text, re.I)
     if m_abn:
@@ -172,9 +205,9 @@ def generate_audit_pdf_bytes(lead_id: str) -> tuple[bytes, str]:
 
     # 1. Header with Score Badge (No overlap, clean table layout)
     header_left_data = [
-        [Paragraph("LEADPULSE • DIGITAL INTELLIGENCE & AUDIT SUITE", brand_sub_style)],
-        [Paragraph("Website Technical & Commercial Audit", main_title_style)],
-        [Paragraph(f"Target Entity: <b>{lead.business_name}</b> &nbsp;|&nbsp; <u>{lead.website or 'No Website Recorded'}</u>", target_sub_style)]
+        [Paragraph("LEADPULSE &bull; DIGITAL INTELLIGENCE &amp; AUDIT SUITE", brand_sub_style)],
+        [Paragraph("Website Technical &amp; Commercial Audit", main_title_style)],
+        [Paragraph(f"Target Entity: <b>{sanitize_pdf_text(lead.business_name)}</b> &nbsp;|&nbsp; <u>{sanitize_pdf_text(lead.website or 'No Website Recorded')}</u>", target_sub_style)]
     ]
     header_left_table = Table(header_left_data, colWidths=[380])
     header_left_table.setStyle(TableStyle([
@@ -215,33 +248,33 @@ def generate_audit_pdf_bytes(lead_id: str) -> tuple[bytes, str]:
     elements.append(HRFlowable(width="100%", thickness=1.5, color=ACCENT_BLUE, spaceBefore=4, spaceAfter=8))
 
     # 2. Executive Business Profile (Cleaned ABN & Credentials)
-    elements.append(Paragraph("1. Executive Business Profile & Credentials", h2_style))
+    elements.append(Paragraph("1. Executive Business Profile &amp; Credentials", h2_style))
     clean_abn_val = extract_clean_abn_license(lead.keywords or "")
     
     prof_data = [
         [
             Paragraph("Business Name:", cell_label),
-            Paragraph(lead.business_name or "N/A", cell_val),
+            Paragraph(sanitize_pdf_text(lead.business_name or "N/A"), cell_val),
             Paragraph("Decision Maker:", cell_label),
-            Paragraph(lead.contact_person or "Executive / Owner", cell_val),
+            Paragraph(sanitize_pdf_text(lead.contact_person or "Executive / Owner"), cell_val),
         ],
         [
             Paragraph("Primary Email:", cell_label),
-            Paragraph(f"<font color='{ACCENT_BLUE.hexval()}'><b>{lead.email or lead.business_email or 'N/A'}</b></font>", cell_val),
+            Paragraph(f"<font color='{ACCENT_BLUE.hexval()}'><b>{sanitize_pdf_text(lead.email or lead.business_email or 'N/A')}</b></font>", cell_val),
             Paragraph("Verified Phone:", cell_label),
-            Paragraph(lead.phone_number or lead.office_contact or "N/A", cell_val),
+            Paragraph(sanitize_pdf_text(lead.phone_number or lead.office_contact or "N/A"), cell_val),
         ],
         [
             Paragraph("Location / Office:", cell_label),
-            Paragraph(lead.office_location or f"{lead.state}, Australia", cell_val),
+            Paragraph(sanitize_pdf_text(lead.office_location or f"{lead.state}, Australia"), cell_val),
             Paragraph("Industry / Territory:", cell_label),
-            Paragraph(f"{lead.niche or 'Commercial'} • {lead.state or 'AU'}", cell_val),
+            Paragraph(f"{sanitize_pdf_text(lead.niche or 'Commercial')} - {sanitize_pdf_text(lead.state or 'AU')}", cell_val),
         ],
         [
             Paragraph("ABN / Credentials:", cell_label),
-            Paragraph(f"<b>{clean_abn_val}</b>", cell_val),
+            Paragraph(f"<b>{sanitize_pdf_text(clean_abn_val)}</b>", cell_val),
             Paragraph("Founding / Team:", cell_label),
-            Paragraph(f"Est. {lead.founding_year or 'N/A'} &nbsp;|&nbsp; {lead.employee_count or '1-10'} employees", cell_val),
+            Paragraph(f"Est. {sanitize_pdf_text(lead.founding_year or 'N/A')} &nbsp;|&nbsp; {sanitize_pdf_text(lead.employee_count or '1-10')} employees", cell_val),
         ]
     ]
 
@@ -261,32 +294,32 @@ def generate_audit_pdf_bytes(lead_id: str) -> tuple[bytes, str]:
     elements.append(Spacer(1, 8))
 
     # 3. Technical Infrastructure & Commercial Matrix
-    elements.append(Paragraph("2. Technical Infrastructure & Commercial Matrix", h2_style))
+    elements.append(Paragraph("2. Technical Infrastructure &amp; Commercial Matrix", h2_style))
 
     tech_data = [
         [
             Paragraph("CMS / Platform:", cell_label),
-            Paragraph(audit.cms_platform or "Custom Web", cell_val),
+            Paragraph(sanitize_pdf_text(audit.cms_platform or "Custom Web"), cell_val),
             Paragraph("SSL Encryption:", cell_label),
-            Paragraph(f"<font color='{GREEN_SUCCESS.hexval() if 'Yes' in audit.ssl_active else RED_ALERT.hexval()}'><b>{audit.ssl_active}</b></font>", cell_val),
+            Paragraph(f"<font color='{GREEN_SUCCESS.hexval() if 'Yes' in (audit.ssl_active or '') else RED_ALERT.hexval()}'><b>{sanitize_pdf_text(audit.ssl_active or 'Yes')}</b></font>", cell_val),
         ],
         [
             Paragraph("Mobile Responsive:", cell_label),
-            Paragraph(audit.mobile_optimized or "Yes", cell_val),
+            Paragraph(sanitize_pdf_text(audit.mobile_optimized or "Yes"), cell_val),
             Paragraph("Page Response Time:", cell_label),
-            Paragraph(f"<b>{audit.load_time_seconds}</b>", cell_val),
+            Paragraph(f"<b>{sanitize_pdf_text(audit.load_time_seconds or '1.2s')}</b>", cell_val),
         ],
         [
             Paragraph("Payment Gateways:", cell_label),
-            Paragraph(audit.payment_gateways or "None Detected", cell_val),
-            Paragraph("Shipping & Logistics:", cell_label),
-            Paragraph(audit.shipping_carriers or "None / Standard", cell_val),
+            Paragraph(sanitize_pdf_text(audit.payment_gateways or "None Detected"), cell_val),
+            Paragraph("Shipping &amp; Logistics:", cell_label),
+            Paragraph(sanitize_pdf_text(audit.shipping_carriers or "None / Standard"), cell_val),
         ],
         [
             Paragraph("Marketing Pixels:", cell_label),
-            Paragraph(audit.marketing_pixels or "None Detected", cell_val),
+            Paragraph(sanitize_pdf_text(audit.marketing_pixels or "None Detected"), cell_val),
             Paragraph("Tech Stack Detected:", cell_label),
-            Paragraph(audit.technologies_used or "Standard Web", cell_val),
+            Paragraph(sanitize_pdf_text(audit.technologies_used or "Standard Web"), cell_val),
         ]
     ]
 
@@ -306,20 +339,20 @@ def generate_audit_pdf_bytes(lead_id: str) -> tuple[bytes, str]:
     elements.append(Spacer(1, 8))
 
     # 4. Technical Flags & Vulnerabilities Found
-    elements.append(Paragraph("3. Technical Flags & Modernization Gaps", h2_style))
+    elements.append(Paragraph("3. Technical Flags &amp; Modernization Gaps", h2_style))
 
     issues_list = audit.outdated_issues.split(" | ") if audit.outdated_issues else ["None Detected (Clean)"]
     issue_rows = []
     for iss in issues_list:
         is_clean = "None Detected" in iss
-        indicator = "✓ PASS" if is_clean else "⚠ FLAG"
+        indicator = "[PASS]" if is_clean else "[FLAG]"
         ind_color = GREEN_SUCCESS.hexval() if is_clean else RED_ALERT.hexval()
         issue_rows.append([
-            Paragraph(f"<font color='{ind_color}'><b>[{indicator}]</b></font>", cell_label),
-            Paragraph(iss, cell_val)
+            Paragraph(f"<font color='{ind_color}'><b>{indicator}</b></font>", cell_label),
+            Paragraph(sanitize_pdf_text(iss), cell_val)
         ])
 
-    issue_table = Table(issue_rows, colWidths=[70, 470])
+    issue_table = Table(issue_rows, colWidths=[60, 480])
     issue_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fff5f5") if any("FLAG" in r[0].text for r in issue_rows) else BG_ROW_ALT),
         ('BOX', (0, 0), (-1, -1), 0.5, BORDER_LIGHT),
@@ -336,14 +369,14 @@ def generate_audit_pdf_bytes(lead_id: str) -> tuple[bytes, str]:
     # 5. Proposed Solution & Growth Opportunities
     pitch_list = audit.pitch_opportunities.split(" | ") if audit.pitch_opportunities else ["Standard Website Performance & SEO Package"]
     solution_elements = [
-        Paragraph("4. Recommended Value Propositions & Solution Strategy", h2_style)
+        Paragraph("4. Recommended Value Propositions &amp; Solution Strategy", h2_style)
     ]
     
     solution_rows = []
     for idx, pitch in enumerate(pitch_list, 1):
         solution_rows.append([
             Paragraph(f"<b>Strategy #{idx}:</b>", cell_label),
-            Paragraph(pitch, cell_val)
+            Paragraph(sanitize_pdf_text(pitch), cell_val)
         ])
 
     solution_table = Table(solution_rows, colWidths=[80, 460])
