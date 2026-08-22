@@ -89,7 +89,7 @@ const PREMADE_TEMPLATES = [
 const PREMADE_SEQUENCE_TEMPLATES = [
   {
     name: "3-Step High-Converting Website Audit Funnel",
-    description: "Initial Technical Audit & PDF Dossier -> Day 3 Quick Bump -> Day 7 Value Case Study",
+    description: "Step 1: Technical Audit & PDF Dossier -> Step 2: Specific Issue Breakdown -> Step 3: Final Growth Offer",
     steps: [
       {
         step_number: 1,
@@ -97,10 +97,10 @@ const PREMADE_SEQUENCE_TEMPLATES = [
         delay_hours: 0,
         subject_template: "Technical Audit & Performance Insights for {{company_name}}",
         body_template: `<p>Hi {{first_name}},</p>
-<p>I was reviewing top local businesses in <strong>{{city}}</strong> and analyzed <strong>{{company_name}}</strong>.</p>
-<p>Our engineering team ran a full technical scan on <strong>{{website}}</strong> and generated a complimentary <strong>Website Technical Audit Dossier</strong> (attached as PDF).</p>
-<p>We identified 3 critical speed and mobile conversion gaps that, when resolved, typically increase quote inquiries by 20-30%.</p>
-<p>Would you have 5 minutes this Thursday for a brief walkthrough?</p>
+<p>I was reviewing leading <strong>{{niche}}</strong> providers in <strong>{{city}}</strong> and analyzed <strong>{{company_name}}</strong>.</p>
+<p>Our team ran a technical scan on <strong>{{website}}</strong> (Platform: <strong>{{cms}}</strong>, Load Speed: <strong>{{load_time}}</strong>) and generated a complimentary <strong>Technical Website Audit Dossier</strong> (attached as PDF).</p>
+<p>Your current website health score is <strong>{{audit_score}}/100</strong>. We identified key optimization opportunities around <strong>{{top_issue}}</strong> that could noticeably increase your inbound quote inquiries.</p>
+<p>Would you have 5 minutes this Thursday for a brief chat to walk through the fixes?</p>
 <p>Best regards,<br>SyntexDev Growth Team<br>dev@syntexdev.com</p>`,
         attach_pdf: true
       },
@@ -108,12 +108,13 @@ const PREMADE_SEQUENCE_TEMPLATES = [
         step_number: 2,
         delay_days: 3,
         delay_hours: 0,
-        subject_template: "Quick follow-up re: {{company_name}} technical audit",
+        subject_template: "Quick follow-up re: {{company_name}} speed & {{top_issue}}",
         body_template: `<p>Hi {{first_name}},</p>
 <p>Following up on the technical audit dossier I sent over earlier this week for <strong>{{company_name}}</strong>.</p>
-<p>Did you get a chance to review the mobile speed and conversion recommendations for <strong>{{website}}</strong>?</p>
-<p>I'd love to share two quick examples of how we solved this for similar Australian businesses in {{state}}.</p>
-<p>Are you available for a quick 5-minute call tomorrow afternoon?</p>
+<p>In particular, I wanted to highlight that resolving <strong>{{top_issue}}</strong> on your <strong>{{cms}}</strong> setup usually drops page load time below 1.2s and prevents mobile visitors from bouncing.</p>
+<p>Did you get a chance to review the recommendations for <strong>{{website}}</strong>?</p>
+<p>I'd love to share two quick examples of how we solved this for similar {{niche}} businesses in {{state}}.</p>
+<p>Are you open to a brief 5-minute call tomorrow afternoon?</p>
 <p>Best regards,<br>SyntexDev Team</p>`,
         attach_pdf: false
       },
@@ -123,11 +124,11 @@ const PREMADE_SEQUENCE_TEMPLATES = [
         delay_hours: 0,
         subject_template: "Final check-in regarding {{company_name}} digital growth",
         body_template: `<p>Hi {{first_name}},</p>
-<p>I know you're busy running operations at <strong>{{company_name}}</strong>, so this will be my final note.</p>
-<p>If modernizing your website infrastructure and acquiring more qualified inquiries is on your radar this quarter, I'm here to help.</p>
-<p>Whenever you're ready, feel free to grab a time on our calendar or reply directly to this email.</p>
-<p>Wishing you and the team in {{city}} all the best!</p>
-<p>Best regards,<br>SyntexDev Growth Team</p>`,
+<p>I know you're busy running operations for <strong>{{company_name}}</strong> in <strong>{{city}}</strong>, so this will be my final note.</p>
+<p>If modernizing your website infrastructure and capturing more qualified {{niche}} inquiries is on your radar this quarter, our team is ready to assist.</p>
+<p>Whenever you're ready, feel free to reply directly to this email or book a quick intro call.</p>
+<p>Wishing you and the {{company_name}} team great success!</p>
+<p>Best regards,<br>SyntexDev Growth Team<br>dev@syntexdev.com</p>`,
         attach_pdf: false
       }
     ]
@@ -1028,8 +1029,18 @@ export default function CampaignsPage() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="text-[11px] font-semibold text-gray-400">HTML Pitch Content</label>
-                          <div className="flex items-center gap-1">
-                            {["{{company_name}}", "{{first_name}}", "{{city}}", "{{website}}"].map(tag => (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {[
+                              "{{company_name}}", 
+                              "{{first_name}}", 
+                              "{{city}}", 
+                              "{{website}}", 
+                              "{{niche}}", 
+                              "{{cms}}", 
+                              "{{load_time}}", 
+                              "{{audit_score}}", 
+                              "{{top_issue}}"
+                            ].map(tag => (
                               <button
                                 key={tag}
                                 type="button"

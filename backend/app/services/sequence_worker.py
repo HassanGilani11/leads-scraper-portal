@@ -67,9 +67,13 @@ def process_due_sequence_enrollments():
                 db.commit()
                 continue
 
-            # Render personalized subject & body
-            rendered_subject = render_template(current_step.subject_template, lead)
-            rendered_body = render_template(current_step.body_template, lead)
+            # Concurrency lock: Advance next_run_at temporarily to prevent duplicate dispatch by concurrent ticks
+            enrollment.next_run_at = now + timedelta(hours=2)
+            db.commit()
+
+            # Render personalized subject & body with rich audit data
+            rendered_subject = render_template(current_step.subject_template, lead, db=db)
+            rendered_body = render_template(current_step.body_template, lead, db=db)
 
             # Generate PDF Audit Dossier if required
             pdf_bytes = None
