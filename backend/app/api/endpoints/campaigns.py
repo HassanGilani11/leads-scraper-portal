@@ -48,8 +48,8 @@ def render_template(template_str: str, lead: Lead) -> str:
         "{{city}}": lead.office_location.split(",")[0].strip() if lead.office_location else "Australia",
         "{{state}}": lead.state or "Australia",
         "{{website}}": lead.website or "your website",
-        "{{phone}}": lead.phone or "",
-        "{{audit_score}}": str(lead.lead_score or 78),
+        "{{phone}}": lead.phone_number or lead.office_contact or "",
+        "{{audit_score}}": "85",
     }
 
     rendered = template_str
@@ -262,8 +262,6 @@ def create_and_dispatch_campaign(
             leads_query = leads_query.filter(Lead.state == payload.state_filter)
         if payload.niche_filter and payload.niche_filter.strip():
             leads_query = leads_query.filter(Lead.business_name.ilike(f"%{payload.niche_filter.strip()}%"))
-        if payload.min_score is not None:
-            leads_query = leads_query.filter(Lead.lead_score >= payload.min_score)
 
     target_leads = leads_query.all()
     if not target_leads:

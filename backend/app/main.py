@@ -28,18 +28,35 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables if not existing
     Base.metadata.create_all(bind=engine)
     
-    # Auto-migrate columns if existing PostgreSQL tables had narrower VARCHAR limits
-    if not is_sqlite:
-        with engine.connect() as conn:
+    # Auto-migrate schema columns across SQLite and PostgreSQL
+    with engine.connect() as conn:
+        if not is_sqlite:
             try:
                 conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN ssl_active TYPE VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN mobile_optimized TYPE VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN load_time_seconds TYPE VARCHAR(100);"))
                 conn.execute(text("ALTER TABLE audit_reports ALTER COLUMN cms_platform TYPE VARCHAR(255);"))
                 conn.commit()
-                print("[DB MIGRATION] PostgreSQL audit_reports columns expanded successfully.")
             except Exception as mig_err:
                 print(f"[DB MIGRATION] Schema check note: {mig_err}")
+
+        for migration_sql in [
+            "ALTER TABLE campaigns ADD COLUMN attach_pdf BOOLEAN DEFAULT 1;",
+            "ALTER TABLE campaigns ADD COLUMN delay_min_seconds INTEGER DEFAULT 45;",
+            "ALTER TABLE campaigns ADD COLUMN delay_max_seconds INTEGER DEFAULT 90;",
+            "ALTER TABLE campaigns ADD COLUMN total_leads INTEGER DEFAULT 0;",
+            "ALTER TABLE campaigns ADD COLUMN sent_count INTEGER DEFAULT 0;",
+            "ALTER TABLE campaigns ADD COLUMN failed_count INTEGER DEFAULT 0;",
+            "ALTER TABLE campaigns ADD COLUMN created_by VARCHAR(255);",
+            "ALTER TABLE campaigns ADD COLUMN completed_at TIMESTAMP;",
+            "ALTER TABLE email_logs ADD COLUMN campaign_id VARCHAR(36);",
+            "ALTER TABLE email_logs ADD COLUMN attached_pdf BOOLEAN DEFAULT 0;",
+        ]:
+            try:
+                conn.execute(text(migration_sql))
+                conn.commit()
+            except Exception:
+                pass
 
     # Auto-seed and verify Super Admin credentials
     db = SessionLocal()
