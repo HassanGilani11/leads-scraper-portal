@@ -163,11 +163,26 @@ export async function deleteUser(userId: string): Promise<void> {
 
 // ----------------- Scrapes API Methods -----------------
 
-export async function startScrapeJob(niche: string, state: string): Promise<Job> {
+export interface StartScrapePayload {
+  niche: string;
+  state: string;
+  suburb?: string;
+  radius_km?: number;
+  no_website_only?: boolean;
+}
+
+export async function startScrapeJob(
+  payload: string | StartScrapePayload,
+  optionalState?: string
+): Promise<Job> {
+  const body = typeof payload === "string" 
+    ? { niche: payload, state: optionalState || "NSW" } 
+    : payload;
+
   const res = await authFetch(`${API_BASE}/scrapes/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ niche, state }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -205,6 +220,7 @@ export interface GetLeadsParams {
   has_email?: boolean;
   has_phone?: boolean;
   has_linkedin?: boolean;
+  has_website?: boolean;
   sort_by?: string;
   sort_order?: "asc" | "desc";
   page?: number;
@@ -220,6 +236,7 @@ export async function getLeads(params: GetLeadsParams = {}): Promise<LeadsPagina
   if (params.has_email !== undefined) query.append("has_email", String(params.has_email));
   if (params.has_phone !== undefined) query.append("has_phone", String(params.has_phone));
   if (params.has_linkedin !== undefined) query.append("has_linkedin", String(params.has_linkedin));
+  if (params.has_website !== undefined) query.append("has_website", String(params.has_website));
   if (params.sort_by) query.append("sort_by", params.sort_by);
   if (params.sort_order) query.append("sort_order", params.sort_order);
   if (params.page) query.append("page", String(params.page));

@@ -10,6 +10,9 @@ class Job(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     niche = Column(String(100), nullable=False, index=True)
     state = Column(String(10), nullable=False, index=True)
+    suburb = Column(String(100), nullable=True, index=True)
+    radius_km = Column(Integer, default=25, nullable=True)
+    no_website_only = Column(String(10), default="false", nullable=True)
     status = Column(String(20), default="pending", index=True)  # pending, running, completed, failed
     total_leads = Column(Integer, default=0)
     found_count = Column(Integer, default=0)

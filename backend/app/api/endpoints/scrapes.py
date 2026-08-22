@@ -18,8 +18,16 @@ router = APIRouter(prefix="/scrapes", tags=["Scrapes"])
 # Thread pool for non-blocking execution of scraper
 executor = ThreadPoolExecutor(max_workers=5)
 
-def run_job_in_thread(niche: str, state: str, job_id: str):
-    run_scrape_job(niche=niche, state=state, job_id=job_id, ws_manager=websocket_manager)
+def run_job_in_thread(niche: str, state: str, job_id: str, suburb: str = None, radius_km: int = 25, no_website_only: bool = False):
+    run_scrape_job(
+        niche=niche,
+        state=state,
+        job_id=job_id,
+        ws_manager=websocket_manager,
+        target_suburb=suburb,
+        radius_km=radius_km,
+        no_website_only=no_website_only
+    )
 
 @router.post("/start", response_model=JobResponse)
 async def start_scrape_job(
@@ -33,11 +41,17 @@ async def start_scrape_job(
     """
     niche = request.niche.strip()
     state = request.state.strip().upper()
+    suburb = request.suburb.strip() if request.suburb else None
+    radius_km = request.radius_km or 25
+    no_website_only = bool(request.no_website_only)
 
     job = Job(
         id=str(uuid.uuid4()),
         niche=niche,
         state=state,
+        suburb=suburb,
+        radius_km=radius_km,
+        no_website_only="true" if no_website_only else "false",
         status="pending",
         total_leads=0,
         found_count=0,
@@ -49,7 +63,7 @@ async def start_scrape_job(
     db.refresh(job)
 
     # Launch in thread pool via background tasks to not block FastAPI
-    background_tasks.add_task(run_job_in_thread, niche, state, job.id)
+    background_tasks.add_task(run_job_in_thread, niche, state, job.id, suburb, radius_km, no_website_only)
 
     return job
 

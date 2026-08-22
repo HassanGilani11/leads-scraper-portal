@@ -16,6 +16,7 @@ class Lead(Base):
     business_name = Column(String(255), nullable=True, index=True)
     url = Column(Text, nullable=True)
     website = Column(Text, nullable=True)
+    has_website = Column(String(10), default="true", index=True)
     business_email = Column(String(255), nullable=True, index=True)
     office_location = Column(Text, nullable=True)
     office_contact = Column(String(100), nullable=True)

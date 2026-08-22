@@ -537,14 +537,32 @@ def run_scrape_job(
     state: str,
     job_id: str,
     ws_manager: WebSocketManager = default_ws_manager,
-    custom_suburbs: list[str] = None
+    custom_suburbs: list[str] = None,
+    target_suburb: str = None,
+    radius_km: int = 25,
+    no_website_only: bool = False
 ) -> dict:
     """
-    Main job executor for scraping and enriching leads.
-    Streams real-time updates through ws_manager and updates the SQLite database.
+    Main job executor for scraping and enriching leads with radius & suburb precision.
+    Streams real-time updates through ws_manager and updates the database.
     """
     state_code = state.strip().upper()
-    suburbs = custom_suburbs if custom_suburbs is not None else AUSTRALIA_LOCATIONS.get(state_code, [])
+    
+    # Calculate target suburb grid based on radius
+    if custom_suburbs is not None:
+        suburbs = custom_suburbs
+    elif target_suburb:
+        base_hubs = [s for s in AUSTRALIA_LOCATIONS.get(state_code, []) if s.lower() != target_suburb.lower()]
+        if radius_km <= 10:
+            suburbs = [target_suburb]
+        elif radius_km <= 25:
+            suburbs = [target_suburb] + base_hubs[:2]
+        elif radius_km <= 50:
+            suburbs = [target_suburb] + base_hubs[:5]
+        else:
+            suburbs = [target_suburb] + base_hubs
+    else:
+        suburbs = AUSTRALIA_LOCATIONS.get(state_code, [])
 
     db = SessionLocal()
     job = db.query(Job).filter(Job.id == job_id).first()
@@ -566,8 +584,10 @@ def run_scrape_job(
         job.status = "running"
         db.commit()
 
+    location_desc = f"{target_suburb} ({radius_km}km radius)" if target_suburb else f"{state_code} ({radius_km}km)"
     log(f"[*] Initialized Scrape Job [{job_id[:8]}]", level="info", data={"status": "running"})
-    log(f"[*] Target Niche: '{niche}' | State: {state_code} ({len(suburbs)} suburbs queued)", level="info")
+    log(f"[*] Target Niche: '{niche}' | Location: {location_desc} | No-Website Filter: {'ON' if no_website_only else 'OFF'}", level="info")
+    log(f"[*] Suburb Grid Scanning: {len(suburbs)} local pocket(s) queued -> {', '.join(suburbs[:4])}{'...' if len(suburbs) > 4 else ''}", level="info")
     
     apollo_key = get_apollo_api_key()
     if apollo_key:
@@ -677,10 +697,20 @@ def run_scrape_job(
                 enriched_leads.append(lead_data)
                 log(f"[!] Error enriching lead: {str(e)}", level="warning")
 
-    # Persist leads into SQLite database
-    log(f"[*] Persisting {len(enriched_leads)} leads to the database...", level="info")
+    # Filter leads if no_website_only requested
+    final_leads = []
+    for l_dict in enriched_leads:
+        web_val = (l_dict.get("website") or "").strip()
+        has_web = "true" if (web_val and (web_val.startswith("http://") or web_val.startswith("https://"))) else "false"
+        l_dict["has_website"] = has_web
+        if no_website_only and has_web == "true":
+            continue
+        final_leads.append(l_dict)
+
+    # Persist leads into database
+    log(f"[*] Persisting {len(final_leads)} leads to the database...", level="info")
     try:
-        for lead_dict in enriched_leads:
+        for lead_dict in final_leads:
             lead_model = Lead(
                 job_id=job_id,
                 niche=niche,
@@ -688,6 +718,7 @@ def run_scrape_job(
                 business_name=lead_dict.get("business_name") or "",
                 url=lead_dict.get("url") or "",
                 website=lead_dict.get("website") or "",
+                has_website=lead_dict.get("has_website", "true"),
                 business_email=lead_dict.get("business_email") or "",
                 office_location=lead_dict.get("office_location") or "",
                 office_contact=lead_dict.get("office_contact") or "",
@@ -708,7 +739,7 @@ def run_scrape_job(
 
         if job:
             job.status = "completed"
-            job.total_leads = len(enriched_leads)
+            job.total_leads = len(final_leads)
             job.found_count = len(all_raw_leads)
             job.enriched_count = enriched_counter
             job.error_count = error_counter

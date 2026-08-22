@@ -28,7 +28,8 @@ import {
   Zap,
   CheckCircle2,
   AlertCircle,
-  GitBranch
+  GitBranch,
+  Globe
 } from "lucide-react";
 import { getLeads, getExportCsvUrl, getJobs, createAndDispatchCampaign, listSequences, enrollLeadsInSequence } from "@/lib/api";
 import { Lead, Job, Sequence } from "@/types";
@@ -48,6 +49,7 @@ function LeadsExplorerContent() {
   const [hasEmail, setHasEmail] = useState<boolean>(false);
   const [hasPhone, setHasPhone] = useState<boolean>(false);
   const [hasLinkedin, setHasLinkedin] = useState<boolean>(false);
+  const [hasWebsiteFilter, setHasWebsiteFilter] = useState<"ALL" | "HAS_WEB" | "NO_WEB">("ALL");
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState<number>(1);
@@ -94,6 +96,7 @@ function LeadsExplorerContent() {
         has_email: hasEmail ? true : undefined,
         has_phone: hasPhone ? true : undefined,
         has_linkedin: hasLinkedin ? true : undefined,
+        has_website: hasWebsiteFilter === "HAS_WEB" ? true : hasWebsiteFilter === "NO_WEB" ? false : undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
         page,
@@ -107,7 +110,7 @@ function LeadsExplorerContent() {
     } finally {
       setLoading(false);
     }
-  }, [search, selectedJobId, selectedState, hasEmail, hasPhone, hasLinkedin, sortBy, sortOrder, page, limit]);
+  }, [search, selectedJobId, selectedState, hasEmail, hasPhone, hasLinkedin, hasWebsiteFilter, sortBy, sortOrder, page, limit]);
 
   useEffect(() => {
     fetchLeadsData();
@@ -151,6 +154,7 @@ function LeadsExplorerContent() {
     setHasEmail(false);
     setHasPhone(false);
     setHasLinkedin(false);
+    setHasWebsiteFilter("ALL");
     setPage(1);
   };
 
@@ -358,6 +362,23 @@ function LeadsExplorerContent() {
             >
               <Linkedin className="h-3.5 w-3.5" />
               Has LinkedIn
+            </button>
+
+            <button
+              onClick={() => {
+                setHasWebsiteFilter(prev => prev === "ALL" ? "NO_WEB" : prev === "NO_WEB" ? "HAS_WEB" : "ALL");
+                setPage(1);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition font-medium ${
+                hasWebsiteFilter === "NO_WEB"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/50"
+                  : hasWebsiteFilter === "HAS_WEB"
+                  ? "bg-blue-500/20 text-blue-300 border-blue-500/50"
+                  : "bg-surface-raised text-gray-400 border-border hover:text-white"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              {hasWebsiteFilter === "NO_WEB" ? "No Website (Hot 🔥)" : hasWebsiteFilter === "HAS_WEB" ? "Has Website Only" : "Website Status: All"}
             </button>
 
             {activeFiltersCount > 0 && (

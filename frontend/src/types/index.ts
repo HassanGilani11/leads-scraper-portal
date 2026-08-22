@@ -2,6 +2,9 @@ export interface Job {
   id: string;
   niche: string;
   state: string;
+  suburb?: string | null;
+  radius_km?: number;
+  no_website_only?: string;
   status: "pending" | "running" | "completed" | "failed";
   total_leads: number;
   found_count: number;
@@ -22,6 +25,7 @@ export interface Lead {
   business_name?: string;
   url?: string;
   website?: string;
+  has_website?: string;
   business_email?: string;
   office_location?: string;
   office_contact?: string;

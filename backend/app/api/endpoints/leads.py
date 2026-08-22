@@ -47,6 +47,7 @@ def get_leads(
     has_email: Optional[bool] = None,
     has_phone: Optional[bool] = None,
     has_linkedin: Optional[bool] = None,
+    has_website: Optional[bool] = None,
     sort_by: str = Query("created_at", description="Field to sort by"),
     sort_order: str = Query("desc", description="asc or desc"),
     page: int = Query(1, ge=1),
@@ -83,6 +84,10 @@ def get_leads(
         query = query.filter(or_(Lead.phone_number != "", Lead.office_contact != ""))
     if has_linkedin is True:
         query = query.filter(Lead.linkedin_url != "")
+    if has_website is True:
+        query = query.filter(Lead.has_website == "true", Lead.website != "")
+    elif has_website is False:
+        query = query.filter(or_(Lead.has_website == "false", Lead.website == None, Lead.website == ""))
 
     # Sorting
     sort_column = getattr(Lead, sort_by, Lead.created_at)

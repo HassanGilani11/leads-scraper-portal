@@ -12,6 +12,7 @@ class LeadResponse(BaseModel):
     business_name: Optional[str] = None
     url: Optional[str] = None
     website: Optional[str] = None
+    has_website: Optional[str] = "true"
     business_email: Optional[str] = None
     office_location: Optional[str] = None
     office_contact: Optional[str] = None

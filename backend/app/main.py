@@ -52,6 +52,10 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE campaigns ADD COLUMN completed_at TIMESTAMP;",
             "ALTER TABLE email_logs ADD COLUMN campaign_id VARCHAR(36);",
             "ALTER TABLE email_logs ADD COLUMN attached_pdf BOOLEAN DEFAULT 0;",
+            "ALTER TABLE jobs ADD COLUMN suburb VARCHAR(100);",
+            "ALTER TABLE jobs ADD COLUMN radius_km INTEGER DEFAULT 25;",
+            "ALTER TABLE jobs ADD COLUMN no_website_only VARCHAR(10) DEFAULT 'false';",
+            "ALTER TABLE leads ADD COLUMN has_website VARCHAR(10) DEFAULT 'true';",
         ]:
             try:
                 conn.execute(text(migration_sql))
