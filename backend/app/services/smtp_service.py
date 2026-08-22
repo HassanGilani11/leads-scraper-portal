@@ -33,19 +33,22 @@ class SMTPService:
             "scope": "https://graph.microsoft.com/.default",
             "grant_type": "client_credentials"
         }
-        try:
-            res = requests.post(token_url, data=data, timeout=12)
-            res_data = res.json()
-            if res.status_code != 200:
-                err_desc = res_data.get("error_description", res.text)
-                if "AADSTS700016" in err_desc:
-                    raise ValueError(f"Azure Client ID not found in tenant. Make sure you entered the 'Application (client) ID' (not Object ID). Details: {err_desc}")
-                elif "AADSTS7000215" in err_desc:
-                    raise ValueError(f"Azure Client Secret invalid or expired. Details: {err_desc}")
-                raise ValueError(f"Microsoft Graph OAuth Token Error ({res.status_code}): {err_desc}")
-            return res_data["access_token"]
-        except requests.RequestException as e:
-            raise ValueError(f"Network error contacting Microsoft Entra token endpoint: {str(e)}")
+        for attempt in range(3):
+            try:
+                res = requests.post(token_url, data=data, timeout=30)
+                res_data = res.json()
+                if res.status_code != 200:
+                    err_desc = res_data.get("error_description", res.text)
+                    if "AADSTS700016" in err_desc:
+                        raise ValueError(f"Azure Client ID not found in tenant. Make sure you entered the 'Application (client) ID' (not Object ID). Details: {err_desc}")
+                    elif "AADSTS7000215" in err_desc:
+                        raise ValueError(f"Azure Client Secret invalid or expired. Details: {err_desc}")
+                    raise ValueError(f"Microsoft Graph OAuth Token Error ({res.status_code}): {err_desc}")
+                return res_data["access_token"]
+            except requests.RequestException as e:
+                if attempt == 2:
+                    raise ValueError(f"Network error contacting Microsoft Entra token endpoint: {str(e)}")
+                time.sleep(1.5)
 
     def send_via_graph(
         self,

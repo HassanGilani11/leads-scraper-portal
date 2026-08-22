@@ -138,6 +138,61 @@ export interface CreateCampaignPayload {
   delay_max_seconds?: number;
 }
 
+export interface SequenceStep {
+  id?: string;
+  step_number: number;
+  delay_days: number;
+  delay_hours: number;
+  subject_template: string;
+  body_template: string;
+  attach_pdf: boolean;
+}
+
+export interface SequenceEnrollment {
+  id: string;
+  sequence_id: string;
+  lead_id: string;
+  business_name?: string | null;
+  recipient_email?: string | null;
+  current_step_number: number;
+  status: "active" | "paused" | "completed" | "replied" | "cancelled";
+  next_run_at: string;
+  last_sent_at?: string | null;
+  created_at: string;
+}
+
+export interface Sequence {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: "active" | "paused" | "archived";
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  steps: SequenceStep[];
+  total_enrolled: number;
+  active_count: number;
+  completed_count: number;
+  replied_count: number;
+}
+
+export interface SequenceDetail extends Sequence {
+  enrollments: SequenceEnrollment[];
+}
+
+export interface CreateSequencePayload {
+  name: string;
+  description?: string;
+  steps: {
+    step_number: number;
+    delay_days: number;
+    delay_hours: number;
+    subject_template: string;
+    body_template: string;
+    attach_pdf: boolean;
+  }[];
+}
+
 export interface CampaignStats {
   total_campaigns: number;
   total_emails_sent: number;

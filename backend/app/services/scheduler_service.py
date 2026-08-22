@@ -9,6 +9,7 @@ from app.models.schedule import Schedule
 from app.models.job import Job
 from app.services.leads_scraper import run_scrape_job
 from app.services.websocket_manager import websocket_manager
+from app.services.sequence_worker import process_due_sequence_enrollments
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=5)
@@ -121,6 +122,10 @@ async def scheduler_loop():
 
             finally:
                 db.close()
+
+            # Process due sequence email follow-up steps asynchronously
+            executor.submit(process_due_sequence_enrollments)
+
         except asyncio.CancelledError:
             print("[SCHEDULER] Background scheduler stopped.")
             break

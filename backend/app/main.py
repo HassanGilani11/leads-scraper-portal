@@ -17,7 +17,8 @@ from app.api.endpoints import (
     audit_router,
     auth_router,
     schedules_router,
-    campaigns_router
+    campaigns_router,
+    sequences_router
 )
 
 from app.services.websocket_manager import websocket_manager
@@ -126,6 +127,7 @@ app.include_router(ws_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
 app.include_router(schedules_router, prefix=settings.API_V1_STR)
 app.include_router(campaigns_router, prefix=settings.API_V1_STR)
+app.include_router(sequences_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

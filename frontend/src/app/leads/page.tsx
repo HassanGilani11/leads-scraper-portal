@@ -27,10 +27,11 @@ import {
   Square,
   Zap,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  GitBranch
 } from "lucide-react";
-import { getLeads, getExportCsvUrl, getJobs, createAndDispatchCampaign } from "@/lib/api";
-import { Lead, Job } from "@/types";
+import { getLeads, getExportCsvUrl, getJobs, createAndDispatchCampaign, listSequences, enrollLeadsInSequence } from "@/lib/api";
+import { Lead, Job, Sequence } from "@/types";
 import { LeadModal } from "@/components/LeadModal";
 import { formatDate, truncateText } from "@/lib/utils";
 
@@ -68,6 +69,12 @@ function LeadsExplorerContent() {
   const [delayMax, setDelayMax] = useState<number>(90);
   const [isSubmittingCampaign, setIsSubmittingCampaign] = useState<boolean>(false);
   const [campaignMessage, setCampaignMessage] = useState<string | null>(null);
+
+  // Sequence Enrollment State
+  const [availableSequences, setAvailableSequences] = useState<Sequence[]>([]);
+  const [showEnrollSeqModal, setShowEnrollSeqModal] = useState<boolean>(false);
+  const [selectedSeqId, setSelectedSeqId] = useState<string>("");
+  const [isEnrollingSeq, setIsEnrollingSeq] = useState<boolean>(false);
 
   // Data & Modal States
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -645,7 +652,19 @@ function LeadsExplorerContent() {
               onClick={handleOpenCampaignModal}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white transition shadow-lg shadow-blue-600/30"
             >
-              <Send className="h-3.5 w-3.5" /> Launch Cold Campaign
+              <Send className="h-3.5 w-3.5" /> Single Batch
+            </button>
+
+            <button
+              onClick={async () => {
+                const seqs = await listSequences().catch(() => []);
+                setAvailableSequences(seqs);
+                if (seqs.length > 0) setSelectedSeqId(seqs[0].id);
+                setShowEnrollSeqModal(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white transition shadow-lg shadow-indigo-600/30"
+            >
+              <GitBranch className="h-3.5 w-3.5" /> Drip Sequence
             </button>
 
             <button
@@ -756,6 +775,82 @@ function LeadsExplorerContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sequence Enrollment Modal for Selected Leads */}
+      {showEnrollSeqModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <GitBranch className="h-4 w-4 text-indigo-400" /> Enroll {selectedLeadIds.length} Leads in Sequence
+              </h3>
+              <button type="button" onClick={() => setShowEnrollSeqModal(false)} className="text-gray-400 hover:text-white">✕</button>
+            </div>
+
+            <p className="text-xs text-gray-300">
+              Select an automated follow-up sequence. The {selectedLeadIds.length} selected leads will start at Step 1 and receive scheduled nudges automatically.
+            </p>
+
+            {availableSequences.length === 0 ? (
+              <div className="py-6 text-center text-gray-400 space-y-2">
+                <p className="text-xs">No active sequences found.</p>
+                <a href="/campaigns" className="text-xs text-indigo-400 hover:underline font-semibold">
+                  Create a sequence in the Outreach Hub &rarr;
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold text-gray-400 mb-1">Choose Drip Sequence</label>
+                  <select
+                    value={selectedSeqId}
+                    onChange={(e) => setSelectedSeqId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-border text-white focus:border-indigo-500 focus:outline-none"
+                  >
+                    {availableSequences.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.steps.length} Steps)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowEnrollSeqModal(false)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedSeqId || isEnrollingSeq || availableSequences.length === 0}
+                onClick={async () => {
+                  if (!selectedSeqId) return;
+                  setIsEnrollingSeq(true);
+                  try {
+                    const res = await enrollLeadsInSequence(selectedSeqId, { lead_ids: selectedLeadIds });
+                    setCampaignMessage(res.message);
+                    setShowEnrollSeqModal(false);
+                    setSelectedLeadIds([]);
+                  } catch (err: any) {
+                    setCampaignMessage(err.message || "Failed to enroll leads.");
+                  } finally {
+                    setIsEnrollingSeq(false);
+                  }
+                }}
+                className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 text-xs font-bold text-white transition disabled:opacity-50"
+              >
+                {isEnrollingSeq ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitBranch className="h-4 w-4" />}
+                {isEnrollingSeq ? "Enrolling..." : "Start Sequence"}
+              </button>
+            </div>
           </div>
         </div>
       )}

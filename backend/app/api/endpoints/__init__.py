@@ -6,6 +6,7 @@ from app.api.endpoints.audit import router as audit_router
 from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.schedules import router as schedules_router
 from app.api.endpoints.campaigns import router as campaigns_router
+from app.api.endpoints.sequences import router as sequences_router
 
 __all__ = [
     "scrapes_router",
@@ -15,7 +16,9 @@ __all__ = [
     "audit_router",
     "auth_router",
     "schedules_router",
-    "campaigns_router"
+    "campaigns_router",
+    "sequences_router"
 ]
+
 
 

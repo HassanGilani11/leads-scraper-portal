@@ -364,6 +364,79 @@ export async function getCampaignStats(): Promise<import("@/types").CampaignStat
   return res.json();
 }
 
+// ----------------- Follow-Up Sequences & Drip API Methods -----------------
+
+export async function createSequence(payload: import("@/types").CreateSequencePayload): Promise<import("@/types").Sequence> {
+  const res = await authFetch(`${API_BASE}/sequences/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create follow-up sequence");
+  }
+  return res.json();
+}
+
+export async function listSequences(): Promise<import("@/types").Sequence[]> {
+  const res = await authFetch(`${API_BASE}/sequences/`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch sequences");
+  return res.json();
+}
+
+export async function getSequenceDetail(sequenceId: string): Promise<import("@/types").SequenceDetail> {
+  const res = await authFetch(`${API_BASE}/sequences/${sequenceId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch sequence details");
+  return res.json();
+}
+
+export async function updateSequence(sequenceId: string, payload: any): Promise<import("@/types").Sequence> {
+  const res = await authFetch(`${API_BASE}/sequences/${sequenceId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update sequence");
+  }
+  return res.json();
+}
+
+export async function deleteSequence(sequenceId: string): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/sequences/${sequenceId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete sequence");
+  return res.json();
+}
+
+export async function enrollLeadsInSequence(
+  sequenceId: string,
+  payload: { lead_ids?: string[]; state_filter?: string; niche_filter?: string }
+): Promise<{ status: string; message: string; enrolled_count: number }> {
+  const res = await authFetch(`${API_BASE}/sequences/${sequenceId}/enroll`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to enroll leads in sequence");
+  }
+  return res.json();
+}
+
+export async function updateEnrollmentStatus(
+  enrollmentId: string,
+  newStatus: string
+): Promise<{ status: string; message: string }> {
+  const res = await authFetch(`${API_BASE}/sequences/enrollments/${enrollmentId}/status?new_status=${newStatus}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to update enrollment status");
+  return res.json();
+}
+
 
 export async function getStatsSummary(): Promise<StatsSummary> {
   const res = await authFetch(`${API_BASE}/settings/stats`, { cache: "no-store" });
